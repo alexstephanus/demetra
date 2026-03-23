@@ -9,6 +9,12 @@ Demetra is built almost exclusively with off-the-shelf parts and components.  Th
 - Motherboard:  Designed to be hand-populated, with primarily 0805 passives and SOIC-package ICs.  Any circuit board manufacturer should be able to fabricate the bare PCB, and you can populate it yourself.
 - Enclosure:  240mm x 210mm x 65mm, which fits many consumer 3D printers.
 
+<div class="grid cards" markdown>
+
+- ![Demetra](assets/demetra.png){ data-title="Demetra fully assembled.  Visible are the 6 peristaltic dosing pumps and screen.  Not pictured: sensor inputs" }
+
+</div>
+
 ## What it does
 
 Demetra continuously monitors your system's pH, nutrient, and ORP levels, and adjusts them as needed to maintain optimal growth conditions.
@@ -52,6 +58,6 @@ There are some features that currently have hardware support, but aren't handled
 
 - [ ] Plumb the external Digital I/O pin through in software to allow monitoring of an external flood sensor.  
 - [ ] External I2C integration to ingest data from miscellaneous sensors.  The hardware configuration has been confirmed to work, but there isn't currently software support for using it.
-- [ ] WiFi and MQTT support.  The ESP32 hardware supports this, but it's not yet built out.  This would allow for remote configuration and monitoring, as well as the ability to set up healthchecks and, for example, error notifications
-- [ ] Support for multiple treatment solutions of the same type.
+- [ ] WiFi and MQTT support.  The ESP32 hardware supports this, but it's not yet built out.  This would allow for remote configuration and monitoring, as well as the ability to set up healthchecks, dashboards, and notifications on warnings and errors.
+- [ ] Support for multiple treatment solutions of the same type, .
 - [ ] The CAN and RS485 hardware is currently totally untested.

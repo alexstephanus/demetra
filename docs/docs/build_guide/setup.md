@@ -4,9 +4,10 @@ Okay, so you've got everything assembled, the firmware is flashed, and it boots 
 
 ## Initial configuration
 Tap on the "Config" tab when your unit boots up.  You'll see a few options:
- - [ ] Tank size: Input the size of your reservoir.  This is used to calculate treatment solution dosage volumes.
- - [ ] Display Units: Set the temperature and conductivity to your desired display units.  By default it uses Celsius and uS/cm.
- - [ ] Time: Set the appropriate date, time, and time zone for your location.
+
+ - Tank size: Input the size of your reservoir.  This is used to calculate treatment solution dosage volumes.
+ - Display Units: Set the temperature and conductivity to your desired display units.  By default it uses Celsius and uS/cm.
+ - Time: Set the appropriate date, time, and time zone for your location.
 
 ## Sensor Setup & Calibration
 Once you've got the basic device configurations done, you'll need to set up and calibrate whatever sensors you're using.  
@@ -21,18 +22,6 @@ For starters, plug in all the sensors you're planning on using.  The enclosure d
 
 Note: conductivity and temperature sensors don't care about polarity, so no need to worry about which wire goes where in the screw terminal.  Just make sure that everything is plugged into the right input jack.
 
-<div class="grid cards" markdown>
-
-- ![Front of enclosure with pumps heads unattached](../assets/pumps_ready_for_insertion.png){ data-title="The front of the enclosure before pump heads are attached" }
-
-- ![Power and BNC washers and nuts](../assets/jacks_with_nuts_separate.png){ data-title="The washers and nuts that come with the DC and BNC jacks, lined up with where they go" } 
-
-- ![Post-nut-installation](../assets/jacks_with_nuts_attached.png){ data-title="The nuts once they're screwed on" }
-
-- ![Everything secured](../assets/pumps_plugged_in.png){ data-title="All pump heads are securely reattached and the nuts for the DC/BNC jacks are screwed into place" } 
-
-</div>
-
 ### Sensor Software Setup
 Once they're all plugged in, enable and calibrate all the sensors you'll be using.  To enable and begin using a sensor, click the sensor's display in the "Status" tab to enable it, and use the "Change Allowed Range" button to set the minimum and maximum acceptable values for the sensor.  Once Demetra registers a reading that falls outside of the acceptable range, it will automatically take corrective action if possible.  Besides enabling the sensor and setting the range, different sensors require different setup and calibration steps:
 
@@ -41,7 +30,7 @@ Once they're all plugged in, enable and calibrate all the sensors you'll be usin
   - [ ] Conductivity: Calibrate the sensor using a calibration solution of known conductivity.
   - [ ] ORP: Calibrate the sensor using a calibration solution of known ORP.
 
-* The beta value indicates how strongly the thermistor's resistance varies with temperature, and it's necessary to convert raw readings into a meaningful temperature measurement. The beta value should be available in the datasheet or listing for your thermistor -- Demetra works with any beta value, but it does need to know what that value is.
+\* The beta value indicates how strongly the thermistor's resistance varies with temperature, and it's necessary to convert raw readings into a meaningful temperature measurement. This value should be available in the datasheet, spec, or listing for your thermistor -- Demetra works with any beta value, but it does need to know what that value is.
 
 ## Dosing Pump Calibration
 Using inexpensive dosing pumps helps keep overall cost low, but the downside is that their flow rates can vary significantly from pump to pump.  But!  That variation can be accounted for to dial in the flow rate for a particular pump.  Calibrating your pumps lets Demetra take each pump's flow rate into account when calculating how long to run a pump to dose in a particular amount of treatment solution.  To calibrate a dosing pump, click the pump's icon in the "Pumps" tab, and use the "Calibrate" button to determine that particular pump's flow rate.  You'll need water and something to measure volume (or weight) precisely.  It's easiest to knock out all 6 pumps at the same time, then you don't need to worry about it again.
@@ -57,7 +46,7 @@ To set up a dosing pump, click the pump's icon in the "Pumps" tab, and do the fo
   - Configure the treatment solution you're using, and the solution strength if you have it -- if not, you can measure the solution strength using the "One-off Measurement" function of the appropriate sensor, with the caveat that you may need to dilute the treatment solution to get an accurate reading.
   - (Optional) Rename the pump to something more descriptive
 
-*Right now, Demetra only supports using a single nutrient solution.  There's a roadmap item for supporting multiple nutrient solutions, mixing ratios, and scheduled ratio changes.  However, at the moment, you'll need to pre-mix them together into a single solution.
+\* Right now, Demetra only supports using a single nutrient solution.  There's a roadmap item for supporting multiple nutrient solutions, mixing ratios, and scheduled ratio changes.  However, at the moment, you'll need to pre-mix them together into a single solution.
 
 ## Outlet Setup
 
@@ -82,6 +71,7 @@ To wire up an outlet, prep your wires for the screw terminal (either by crimping
 ### Outlet Software Setup
 
 To set up an outlet, click the outlet's icon in the "Outlets" tab.  Demetra supports up to 4 DC outlets, which can be used for any of the following:
+
   - Fertigation pumps: These run on whatever schedule you configure.
   - Solenoid valves: If you have a water line feeding your reservoir, demetra supports automatic top-up of your reservoir from the water line once the float switch is activated.
   - Stir pumps: Sits inside your reservoir, triggered to run after a treatment solution is added.  They're not strictly necessary, but they will make your dosing feedback loop much tighter, since they'll disperse treatment solutions evenly throughout your reservoir.

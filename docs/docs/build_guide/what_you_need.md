@@ -1,5 +1,5 @@
 # What You Need
-This section outlines everything you'll need to build the project: both parts and tools.
+This section covers everything you'll need to build the project: both parts and tools.  The parts list is prescriptive, the tools lists are mostly not.  For instance, "The tools you use for SMD assembly" will vary.
 
 ## Parts
 ### PCB
@@ -22,6 +22,12 @@ This section outlines everything you'll need to build the project: both parts an
 - [ ] Power supply (see Final Assembly section for specs)
 - [ ] Heat-shrink tubing (optional)
 - [ ] Flood sensor (optional)
+
+<div class="grid cards" markdown>
+
+- ![All required parts](../assets/all_parts.png){ data-title="All parts required for assembly.  Left: PCB and all enclosure parts, including heat-set inserts and screws.  Right: Power supply, peristaltic pumps & connectors, screen, all sensors.  Not pictured: a big box of electronic components to populate the bare PCB." }
+
+</div>
 
 #### Selecting a Power Supply
 There are a couple considerations you need to keep in mind when selecting a power supply:
