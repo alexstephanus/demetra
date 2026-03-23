@@ -11,7 +11,7 @@ Demetra is built almost exclusively with off-the-shelf parts and components.  Th
 
 <div class="grid cards" markdown>
 
-- ![Demetra](../assets/demetra.png){ data-title="Demetra fully assembled.  Visible are the 6 peristaltic dosing pumps and screen.  Not pictured: sensor inputs" }
+- ![Demetra](assets/demetra.png){ data-title="Demetra fully assembled.  Visible are the 6 peristaltic dosing pumps and screen.  Not pictured: sensor inputs" }
 
 </div>
 
