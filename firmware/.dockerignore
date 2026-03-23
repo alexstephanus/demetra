@@ -1,0 +1,8 @@
+target/
+simulation/target
+simulation/target-sim
+.git/
+.claude/
+.vscode/
+.embuild/
+.local/

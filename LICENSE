@@ -1,0 +1,5 @@
+This project is licensed under multiple licenses:
+
+- firmware/    GPL-3.0-only (see firmware/LICENSE)
+- hardware/    CERN-OHL-W-2.0 (see hardware/LICENSE)
+- docs/        CC-BY-SA-4.0 (see docs/LICENSE)

@@ -1,0 +1,374 @@
+import { Button } from "std-widgets.slint";
+import { NumericSelector } from "@ui/components/numeric-selector.slint";
+import { WorkflowUiState, PhCalibrationWorkflowStep } from "@ui/state/workflow-state.slint";
+import { AppColors } from "@ui/colors.slint";
+import { SensorType } from "@ui/state/enums.slint";
+import { SensorUiState } from "@ui/state/state.slint";
+
+export enum PhCalibrationSolutionType { Low, Mid, High }
+
+export component PhSolutionSelector {
+    in property <PhCalibrationSolutionType> solution-type: PhCalibrationSolutionType.Low;
+    in property <[float]> default-options: [];
+
+    width: 100%;
+    height: 100%;
+
+    callback selection-confirmed(float);
+ 
+    public function reset() {
+        numeric-selector.reset();
+    }
+
+    public pure function calibration-solution-type-to-string(type: PhCalibrationSolutionType) -> string {
+        if (type == PhCalibrationSolutionType.Low) {
+            return "Low";
+        } else if (type == PhCalibrationSolutionType.Mid) {
+            return "Mid";
+        } else {
+            return "High";
+        }
+    }
+
+    numeric-selector := NumericSelector {
+        display-text: "Select " + calibration-solution-type-to-string(root.solution-type) + " Calibration\nSolution pH";
+        default-options: root.default-options;
+        decimal-places: 2;
+        min-value: 0.0;
+        max-value: 14.0;
+        
+        selection-confirmed(value) => {
+            root.selection-confirmed(value);
+        }
+    }
+}
+
+component MeasuringPhIndicator {
+    in property <float> ph-value;
+
+    property <float> effective-temp-c: SensorUiState.latest-voltage-temperature-celsius > 1.0
+        ? SensorUiState.latest-voltage-temperature-celsius
+        : 25.0;
+
+    width: 100%;
+    height: 100%;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+        spacing: 10px;
+        alignment: center;
+
+        Text {
+            text: "Place probe in " + ph-value.to-fixed(2) + " pH solution,\nthen press Measure.";
+            color: black;
+            font-size: 12pt;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Text {
+            text: SensorUiState.latest-ph-voltage-mv == 0.0 ? "—" : SensorUiState.latest-ph-voltage-mv.to-fixed(0) + " mV";
+            color: black;
+            font-size: 18pt;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: effective-temp-c.to-fixed(1) + "°C";
+            color: black;
+            font-size: 12pt;
+            horizontal-alignment: center;
+        }
+
+        Button {
+            text: "Measure";
+            height: 50px;
+            clicked => {
+                SensorUiState.measure-sensor-raw-value(SensorType.ph);
+            }
+        }
+
+        Button {
+            text: "Use Reading & Continue";
+            height: 50px;
+            enabled: SensorUiState.latest-ph-voltage-mv != 0.0;
+            clicked => {
+                WorkflowUiState.confirm-ph-measurement(
+                    SensorUiState.latest-ph-voltage-mv,
+                    effective-temp-c,
+                );
+            }
+        }
+
+        Button {
+            text: "Cancel";
+            height: 45px;
+            clicked => {
+                WorkflowUiState.cancel-ph-calibration();
+            }
+        }
+    }
+}
+
+component PhCalibrationSummaryDisplay {
+    in property <float> calibration-slope;
+
+    callback enable-ph;
+    callback enable-temperature;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+
+        padding: 10px;
+
+        Text {
+            text: "Calibration Complete.";
+            color: black;
+            font-size: 24pt;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            spacing: 10px;
+
+            Text {
+                color: black;
+                text: "Slope: \{WorkflowUiState.ph-calibration-slope.to-fixed(1)}%";
+                font-size: 18pt;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            Text {
+                color: WorkflowUiState.ph-calibration-slope >= 95.0 && WorkflowUiState.ph-calibration-slope <= 105.0 ? green :
+                       WorkflowUiState.ph-calibration-slope >= 90.0 && WorkflowUiState.ph-calibration-slope <= 110.0 ? orange : red;
+                text: WorkflowUiState.ph-calibration-slope >= 95.0 && WorkflowUiState.ph-calibration-slope <= 105.0 ? "✓" :
+                      WorkflowUiState.ph-calibration-slope >= 90.0 && WorkflowUiState.ph-calibration-slope <= 110.0 ? "⚠" : "✗";
+                font-size: 18pt;
+                horizontal-alignment: center;
+            }
+        }
+
+        if WorkflowUiState.ph-calibration-slope < 95.0 || WorkflowUiState.ph-calibration-slope > 105.0: Text {
+            color: WorkflowUiState.ph-calibration-slope >= 90.0 && WorkflowUiState.ph-calibration-slope <= 110.0 ? orange : red;
+            text: WorkflowUiState.ph-calibration-slope >= 90.0 && WorkflowUiState.ph-calibration-slope <= 110.0 ?
+                  "Consider replacing your pH probe soon." : "Replace your pH probe.";
+            font-size: 16pt;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Text {
+            color: black;
+            text: "Place probes back into the reservoir";
+            font-size: 18pt;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Rectangle {
+            height: 30%;
+            border-radius: 5px;
+            background: AppColors.status-ok;
+
+            states [
+                pressed when button.pressed : {
+                    background: #3eb359; // Darker green when pressed
+                }
+            ]
+
+            button := TouchArea {
+                width: 100%;
+                height: 100%;
+                clicked => {
+                    SensorUiState.enable-sensor(SensorType.ph);
+                    SensorUiState.enable-sensor(SensorType.temperature);
+                    WorkflowUiState.reset-ph-calibration();
+                }
+            }
+
+            Text {
+                text: "I've returned my pH and temperature probes. Resume routine measurements.";
+                color: white;
+                font-size: 16pt;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                width: 100%;
+                height: 100%;
+            }
+        }
+    }
+}
+
+component PhCalibrationCancelDisplay {
+    callback enable-ph;
+    callback enable-temperature;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+
+        padding: 10px;
+
+        Text {
+            text: "Calibration Cancelled";
+            color: black;
+            font-size: 24pt;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Text {
+            color: black;
+            text: "Place probes back into the reservoir";
+            font-size: 18pt;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Rectangle {
+            height: 30%;
+            border-radius: 5px;
+            background: AppColors.status-ok;
+
+            states [
+                pressed when button.pressed : {
+                    background: #3eb359; // Darker green when pressed
+                }
+            ]
+
+            button := TouchArea {
+                width: 100%;
+                height: 100%;
+                clicked => {
+                    SensorUiState.enable-sensor(SensorType.ph);
+                    SensorUiState.enable-sensor(SensorType.temperature);
+                    WorkflowUiState.reset-ph-calibration();
+                }
+            }
+
+            Text {
+                text: "I've returned my pH and temperature probes. Resume routine measurements.";
+                color: white;
+                font-size: 16pt;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                width: 100%;
+                height: 100%;
+            }
+        }
+    }
+}
+
+
+export component PhCalibrationWorkflowUi inherits Rectangle {
+    property <PhCalibrationWorkflowStep> state: WorkflowUiState.ph-calibration-state;
+    visible: WorkflowUiState.ph-calibration-state != PhCalibrationWorkflowStep.Inactive;
+    width: 100%;
+    height: 100%;
+    background: white;
+
+    property <float> low-calibration-solution: WorkflowUiState.ph-low-solution;
+    property <float> mid-calibration-solution: WorkflowUiState.ph-mid-solution;
+    property <float> high-calibration-solution: WorkflowUiState.ph-high-solution;
+
+    callback progress-state();
+    progress-state() => {
+        WorkflowUiState.advance-ph-calibration();
+    }
+
+    callback complete-measurement();
+
+    complete-measurement() => {
+        WorkflowUiState.reset-ph-calibration();
+    }
+
+    callback cancel();
+    cancel() => {
+        WorkflowUiState.cancel-ph-calibration();
+    }
+
+    low-ph-solution-selector := PhSolutionSelector {
+        visible: parent.state == PhCalibrationWorkflowStep.GettingLowPhValue;
+        solution-type: PhCalibrationSolutionType.Low;
+        default-options: [4.00, 4.01];
+
+        selection-confirmed(value) => {
+            WorkflowUiState.ph-low-solution = value;
+            parent.progress-state();
+        }
+    }
+
+    low-ph-solution-measurement-indicator := MeasuringPhIndicator {
+        visible: root.state == PhCalibrationWorkflowStep.MeasuringLowPh;
+        ph-value: root.low-calibration-solution;
+    }
+
+    mid-ph-solution-selector := PhSolutionSelector {
+        visible: parent.state == PhCalibrationWorkflowStep.GettingMidPhValue;
+        solution-type: PhCalibrationSolutionType.Mid;
+        default-options: [6.86, 7.00];
+
+        selection-confirmed(value) => {
+            WorkflowUiState.ph-mid-solution = value;
+            parent.progress-state();
+        }
+    }
+
+    mid-ph-solution-measurement-indicator := MeasuringPhIndicator {
+        visible: root.state == PhCalibrationWorkflowStep.MeasuringMidPh;
+        ph-value: root.mid-calibration-solution;
+    }
+
+    high-ph-solution-selector := PhSolutionSelector {
+        visible: parent.state == PhCalibrationWorkflowStep.GettingHighPhValue;
+        solution-type: PhCalibrationSolutionType.High;
+        default-options: [9.18, 10.00];
+
+        selection-confirmed(value) => {
+            WorkflowUiState.ph-high-solution = value;
+            parent.progress-state();
+        }
+    }
+
+    high-ph-solution-measurement-indicator := MeasuringPhIndicator {
+        visible: root.state == PhCalibrationWorkflowStep.MeasuringHighPh;
+        ph-value: root.high-calibration-solution;
+    }
+
+    calibration-summary-display := PhCalibrationSummaryDisplay {
+        visible: root.state == PhCalibrationWorkflowStep.Complete;
+        calibration-slope: 100.0%;
+        width: 100%;
+        height: 100%;
+    }
+
+    calibration-cancel-display := PhCalibrationCancelDisplay {
+        visible: root.state == PhCalibrationWorkflowStep.Cancelled;
+        width: 100%;
+        height: 100%;
+    }
+
+    // Cancel button - show during selection screens but not measurement screens
+    cancel-button := Button {
+        visible: root.state == PhCalibrationWorkflowStep.GettingLowPhValue ||
+                root.state == PhCalibrationWorkflowStep.GettingMidPhValue ||
+                root.state == PhCalibrationWorkflowStep.GettingHighPhValue;
+        text: "Cancel Calibration";
+        x: parent.width - self.width - 20px;
+        y: parent.height - self.height - 20px;
+        width: 150px;
+        height: 40px;
+
+        clicked => {
+            root.cancel();
+        }
+    }
+}

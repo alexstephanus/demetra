@@ -1,0 +1,254 @@
+
+import { SensorType, Status } from "enums.slint";
+import { AppTab } from "navigation.slint";
+
+@rust-attr(derive(serde::Deserialize, serde::Serialize))
+export enum TemperatureDisplayUnit {
+    celsius,
+    fahrenheit,
+}
+
+@rust-attr(derive(serde::Deserialize, serde::Serialize))
+export enum ConductivityDisplayUnit {
+    us-per-cm,
+    ppm500,
+    ppm700,
+}
+
+export global AppUiState {
+    in-out property <float> tank-size;
+    in-out property <TemperatureDisplayUnit> temperature-display-unit;
+    in-out property <ConductivityDisplayUnit> conductivity-display-unit;
+    in-out property <string> current-time: "Oct 1 2:42pm";
+    in-out property <AppTab> current-tab: AppTab.Status;
+
+    callback set-tank-size(tank-size: float);
+    callback set-temperature-display-unit(unit: TemperatureDisplayUnit);
+    callback set-conductivity-display-unit(unit: ConductivityDisplayUnit);
+    callback set-date(year: int, month: int, day: int);
+    callback set-time(hour: int, minute: int, second: int);
+
+    // Keypad state and callbacks
+    in-out property <string> keypad-display-value: "";
+    callback keypad-append-digit(digit: string, current-value: string) -> string;
+    callback keypad-backspace(current-value: string) -> string;
+    callback keypad-set-display-value(string);
+
+    // Keyboard state and callbacks (for alphabetical input)
+    in-out property <string> keyboard-display-value: "";
+    callback keyboard-append-character(character: string, current-value: string) -> string;
+    callback keyboard-backspace(current-value: string) -> string;
+    callback keyboard-set-display-value(string);
+
+    keypad-set-display-value(value) => {
+        self.keypad-display-value = value;
+    }
+
+    keyboard-set-display-value(value) => {
+        self.keyboard-display-value = value;
+    }
+
+}
+
+export global SensorUiState {
+    in-out property <bool> ph-enabled: false;
+    in-out property <bool> ec-enabled: false;
+    in-out property <bool> orp-enabled: false;
+    in-out property <bool> temperature-enabled: false;
+
+    in-out property <Status> ph-status: Status.ok;
+    in-out property <Status> ec-status: Status.ok;
+    in-out property <Status> orp-status: Status.ok;
+    in-out property <Status> temperature-status: Status.ok;
+
+    in-out property <string> ph-last-calibration: "Never";
+    in-out property <string> ec-last-calibration: "Never";
+    in-out property <string> orp-last-calibration: "Never";
+
+    in-out property <float> ph-min-acceptable: 5.5;
+    in-out property <float> ph-max-acceptable: 7.5;
+    in-out property <float> ec-min-acceptable: 800.0;
+    in-out property <float> ec-max-acceptable: 1800.0;
+    in-out property <float> orp-min-acceptable: 400.0;
+    in-out property <float> orp-max-acceptable: 800.0;
+    in-out property <float> temperature-min-acceptable: 18.0;
+    in-out property <float> temperature-max-acceptable: 28.0;
+
+    in-out property <float> current-ph-value: 0.0;
+    in-out property <float> current-ec-value: 0.0;
+    in-out property <float> current-orp-value: 0.0;
+    in-out property <float> current-temperature-celsius: 0.0;
+
+    callback enable-sensor(sensor-type: SensorType);
+    callback disable-sensor(sensor-type: SensorType);
+    callback set-sensor-min-value(sensor-type: SensorType, min-value: float);
+    callback set-sensor-max-value(sensor-type: SensorType, max-value: float);
+
+    callback measure-sensor-raw-value(sensor-type: SensorType);
+    callback measure-sensor-calibrated-value(sensor-type: SensorType);
+
+    in-out property <float> latest-ph-voltage-mv: 0.0;
+    in-out property <float> latest-ec-voltage-mv: 0.0;
+    in-out property <float> latest-orp-voltage-mv: 0.0;
+    in-out property <float> latest-voltage-temperature-celsius: 0.0;
+
+    in-out property <string> latest-ph-manual-reading: "";
+    in-out property <string> latest-ec-manual-reading: "";
+    in-out property <string> latest-orp-manual-reading: "";
+    in-out property <string> latest-temperature-manual-reading: "";
+
+    in-out property <float> temperature-beta-value: 0.0;
+    in-out property <bool> temp-beta-confirm-visible: false;
+
+    callback set-thermistor-beta(beta-value: float);
+
+    in property <image> chart-image;
+    in-out property <bool> chart-visible: false;
+    callback view-history(sensor-type: SensorType);
+}
+
+@rust-attr(derive(serde::Deserialize, serde::Serialize))
+export enum TreatmentSolutionType { unconfigured, phUp, phDown, orpTreatment, nutrient }
+
+@rust-attr(derive(serde::Deserialize, serde::Serialize))
+export struct UiTreatmentSolution {
+    solution-type: TreatmentSolutionType,
+    solution-strength: float,
+}
+
+@rust-attr(derive(serde::Deserialize, serde::Serialize))
+export struct DosingPumpUiState {
+    name: string,
+    status: Status,
+    enabled: bool,
+    treatment-solution: UiTreatmentSolution,
+}
+
+@rust-attr(derive(serde::Deserialize, serde::Serialize))
+export enum OutletMode { unconfigured, generalPurpose, solenoid, stirPump, fertigationPump }
+
+export struct UiScheduledRunWindow {
+    start-hour: int,
+    start-minute: int,
+    duration-value: int,
+    duration-unit: string,
+    sunday: bool,
+    monday: bool,
+    tuesday: bool,
+    wednesday: bool,
+    thursday: bool,
+    friday: bool,
+    saturday: bool,
+}
+
+export struct OutletUiState {
+    status: Status,
+    outlet-mode: OutletMode,
+    name: string,
+    schedule-windows: [UiScheduledRunWindow],
+    enable: bool,
+    stir-seconds: int,
+    fill-seconds: int,
+}
+
+export struct RecentErrorEntry {
+    message: string,
+    category: string,
+    timestamp: string,
+}
+
+export global LogUiState {
+    in-out property <[RecentErrorEntry]> recent-errors: [];
+}
+
+export global PumpUiState {
+    in-out property <[DosingPumpUiState]> dosing-pump-states: [
+        {
+            name: "",
+            status: Status.ok,
+            enabled: true,
+            treatment-solution: { solution-type: TreatmentSolutionType.unconfigured, solution-strength: 0.0 }
+        },
+        {
+            name: "pH Down",
+            status: Status.ok,
+            enabled: true,
+            treatment-solution: { solution-type: TreatmentSolutionType.phDown, solution-strength: 4.0 }
+        },
+        {
+            name: "",
+            status: Status.ok,
+            enabled: false,
+            treatment-solution: { solution-type: TreatmentSolutionType.unconfigured, solution-strength: 0.0 }
+        },
+        {
+            name: "pH Up",
+            status: Status.ok,
+            enabled: true,
+            treatment-solution: { solution-type: TreatmentSolutionType.phUp, solution-strength: 9.0 }
+        },
+        {
+            name: "",
+            status: Status.error,
+            enabled: true,
+            treatment-solution: { solution-type: TreatmentSolutionType.orpTreatment, solution-strength: 400.0 }
+        },
+        {
+            name: "Nutrients",
+            status: Status.ok,
+            enabled: true,
+            treatment-solution: { solution-type: TreatmentSolutionType.nutrient, solution-strength: 1.8 }
+        }
+    ];
+
+    in-out property <[bool]> dosing-pump-running: [false, false, false, false, false, false];
+    in-out property <[bool]> outlet-running: [false, false, false, false];
+
+    in-out property <[OutletUiState]> configurable-outlet-states: [
+        {
+            name: "",
+            status: Status.ok,
+            outlet-mode: OutletMode.unconfigured,
+            schedule-windows: [],
+            enable: false
+        },
+        {
+            name: "",
+            status: Status.ok,
+            outlet-mode: OutletMode.unconfigured,
+            schedule-windows: [],
+            enable: false
+        },
+        {
+            name: "",
+            status: Status.ok,
+            outlet-mode: OutletMode.unconfigured,
+            schedule-windows: [],
+            enable: false
+        },
+        {
+            name: "",
+            status: Status.ok,
+            outlet-mode: OutletMode.unconfigured,
+            schedule-windows: [],
+            enable: false
+        }
+    ];
+
+    callback enable-pump(pump-index: int);
+    callback disable-pump(pump-index: int);
+    callback set-dosing-pump-status(pump-index: int, status: Status);
+    callback rename-pump(pump-index: int, name: string);
+    callback update-treatment-solution(pump-index: int, solution: UiTreatmentSolution);
+
+    callback enable-outlet(outlet-index: int);
+    callback disable-outlet(outlet-index: int);
+    callback rename-outlet(outlet-index: int, name: string);
+    callback change-outlet-mode(outlet-index: int, outlet-mode: OutletMode);
+    callback run-outlet-manually(outlet-index: int, duration-seconds: int);
+    callback schedule-add-window(outlet-index: int, window: UiScheduledRunWindow);
+    callback schedule-update-window(outlet-index: int, index: int, window: UiScheduledRunWindow);
+    callback schedule-delete-window(outlet-index: int, index: int);
+    callback update-solenoid-fill-time(outlet-index: int, seconds: float);
+    callback update-stir-duration(outlet-index: int, seconds: float);
+}

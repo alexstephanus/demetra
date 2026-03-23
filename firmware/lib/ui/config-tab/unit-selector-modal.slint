@@ -1,0 +1,149 @@
+import { Button } from "std-widgets.slint";
+
+export component UnitSelectorModal inherits Rectangle {
+    // Properties
+    in-out property <bool> modal-visible: false;
+    in property <string> title: "Select Unit";
+    in-out property <int> selected-index: 0;
+    
+    // Unit options (up to 4 options should be plenty)
+    in property <string> option1: "";
+    in property <string> option2: "";
+    in property <string> option3: "";
+    in property <string> option4: "";
+
+    // Callbacks
+    callback close();
+    callback save(int);
+
+    // Modal overlay (covers entire screen when visible)  
+    visible: root.modal-visible;
+
+    // Semi-transparent background overlay
+    background-overlay := Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #00000080; // Semi-transparent black
+        
+        TouchArea {
+            // Close modal when clicking outside
+            clicked => { root.close(); }
+        }
+    }
+
+    // Centered modal content
+    modal-content := Rectangle {
+        width: min(280px, root.width - 40px);
+        height: min(350px, root.height - 40px);
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        
+        background: white;
+        border-radius: 15px;
+        border-width: 2px;
+        border-color: #333333;
+        drop-shadow-blur: 10px;
+        drop-shadow-color: #00000040;
+        
+        TouchArea {
+            // Prevent clicks from propagating to background
+            clicked => { /* no-op */ }
+        }
+
+        VerticalLayout {
+            padding: 25px;
+            spacing: 20px;
+            
+            // Header
+            Text {
+                text: root.title;
+                font-size: 18px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                color: #333333;
+                wrap: word-wrap;
+                height: 50px;
+            }
+            
+            // Option buttons - uses remaining space dynamically
+            VerticalLayout {
+                spacing: 12px;
+                
+                if root.option1 != "": Rectangle {
+                    border-radius: 8px;
+                    background: root.selected-index == 0 ? #e3f2fd : transparent;
+                    border-width: root.selected-index == 0 ? 2px : 1px;
+                    border-color: root.selected-index == 0 ? #2196f3 : #cccccc;
+                    
+                    Button {
+                        text: root.option1;
+                        clicked => {
+                            root.selected-index = 0;
+                        }
+                    }
+                }
+                
+                if root.option2 != "": Rectangle {
+                    border-radius: 8px;
+                    background: root.selected-index == 1 ? #e3f2fd : transparent;
+                    border-width: root.selected-index == 1 ? 2px : 1px;
+                    border-color: root.selected-index == 1 ? #2196f3 : #cccccc;
+                    
+                    Button {
+                        text: root.option2;
+                        clicked => {
+                            root.selected-index = 1;
+                        }
+                    }
+                }
+                
+                if root.option3 != "": Rectangle {
+                    border-radius: 8px;
+                    background: root.selected-index == 2 ? #e3f2fd : transparent;
+                    border-width: root.selected-index == 2 ? 2px : 1px;
+                    border-color: root.selected-index == 2 ? #2196f3 : #cccccc;
+                    
+                    Button {
+                        text: root.option3;
+                        clicked => {
+                            root.selected-index = 2;
+                        }
+                    }
+                }
+                
+                if root.option4 != "": Rectangle {
+                    border-radius: 8px;
+                    background: root.selected-index == 3 ? #e3f2fd : transparent;
+                    border-width: root.selected-index == 3 ? 2px : 1px;
+                    border-color: root.selected-index == 3 ? #2196f3 : #cccccc;
+                    
+                    Button {
+                        text: root.option4;
+                        clicked => {
+                            root.selected-index = 3;
+                        }
+                    }
+                }
+            }
+            
+            // Action buttons - fixed at bottom
+            HorizontalLayout {
+                spacing: 15px;
+                height: 45px;
+                
+                Button {
+                    text: "Back";
+                    clicked => { root.close(); }
+                }
+                
+                Button {
+                    text: "Save";
+                    clicked => { 
+                        root.save(root.selected-index);
+                        root.close();
+                    }
+                }
+            }
+        }
+    }
+}

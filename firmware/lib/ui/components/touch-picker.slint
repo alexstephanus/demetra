@@ -1,0 +1,35 @@
+import { ListView } from "std-widgets.slint";
+import { AppColors } from "@ui/colors.slint";
+
+export component TouchPicker inherits Rectangle {
+    in property <[string]> model: [];
+    in property <string> current-value: "";
+    callback selected(string);
+
+    background: AppColors.background-light;
+    border-width: 1px;
+    border-color: AppColors.background-border;
+    border-radius: 4px;
+
+    ListView {
+        mouse-drag-pan-enabled: true;
+        for value in root.model: Rectangle {
+            height: 40px;
+            background: value == root.current-value ? AppColors.background-border : transparent;
+
+            TouchArea {
+                clicked => {
+                    root.selected(value);
+                }
+            }
+
+            Text {
+                text: value;
+                font-size: 14px;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

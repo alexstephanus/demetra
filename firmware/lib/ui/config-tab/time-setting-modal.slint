@@ -1,0 +1,183 @@
+import { Button } from "std-widgets.slint";
+import { AppColors } from "@ui/colors.slint";
+import { TouchPicker } from "@ui/components/touch-picker.slint";
+
+export component TimeSettingModal inherits Rectangle {
+    in property <bool> modal-visible: false;
+    in-out property <int> current-hour: 12;
+    in-out property <int> current-minute: 0;
+    in-out property <int> current-second: 0;
+
+    callback close();
+    callback save(hour: int, minute: int, second: int);
+
+    visible: root.modal-visible;
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+    TouchArea {
+        width: 100%;
+        height: 100%;
+    }
+
+    Text {
+        x: 30px;
+        y: 25px;
+        width: root.width - 60px;
+        text: "Set Time";
+        font-size: 24px;
+        font-weight: 700;
+        color: AppColors.text-primary;
+        horizontal-alignment: center;
+    }
+
+    VerticalLayout {
+        x: 20px;
+        y: 80px;
+        width: root.width - 40px;
+        height: root.height - 160px;
+        alignment: center;
+
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: center;
+
+            VerticalLayout {
+                spacing: 5px;
+                Text {
+                    text: "Hour";
+                    font-size: 12px;
+                    color: AppColors.text-secondary;
+                }
+                TouchPicker {
+                    model: generate-hour-list();
+                    current-value: format-two-digits(root.current-hour);
+                    width: 80px;
+                    height: 200px;
+
+                    selected(value) => {
+                        root.current-hour = parse-int(value);
+                    }
+                }
+            }
+
+            Text {
+                text: ":";
+                font-size: 24px;
+                color: AppColors.text-primary;
+                vertical-alignment: center;
+            }
+
+            VerticalLayout {
+                spacing: 5px;
+                Text {
+                    text: "Minute";
+                    font-size: 12px;
+                    color: AppColors.text-secondary;
+                }
+                TouchPicker {
+                    model: generate-minute-list();
+                    current-value: format-two-digits(root.current-minute);
+                    width: 80px;
+                    height: 200px;
+
+                    selected(value) => {
+                        root.current-minute = parse-int(value);
+                    }
+                }
+            }
+
+            Text {
+                text: ":";
+                font-size: 24px;
+                color: AppColors.text-primary;
+                vertical-alignment: center;
+            }
+
+            VerticalLayout {
+                spacing: 5px;
+                Text {
+                    text: "Second";
+                    font-size: 12px;
+                    color: AppColors.text-secondary;
+                }
+                TouchPicker {
+                    model: generate-second-list();
+                    current-value: format-two-digits(root.current-second);
+                    width: 80px;
+                    height: 200px;
+
+                    selected(value) => {
+                        root.current-second = parse-int(value);
+                    }
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        x: 20px;
+        y: root.height - 60px;
+        width: root.width - 40px;
+        height: 50px;
+        spacing: 10px;
+
+        Button {
+            text: "Cancel";
+            clicked => {
+                root.close();
+            }
+        }
+
+        Button {
+            text: "Save";
+            primary: true;
+            clicked => {
+                root.save(
+                    root.current-hour,
+                    root.current-minute,
+                    root.current-second,
+                );
+                root.close();
+            }
+        }
+    }
+
+    pure function format-two-digits(value: int) -> string {
+        value < 10 ? "0" + value : "" + value
+    }
+
+    pure function generate-hour-list() -> [string] {
+        [
+            "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11",
+            "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"
+        ]
+    }
+
+    pure function generate-minute-list() -> [string] {
+        [
+            "00", "01", "02", "03", "04", "05", "06", "07", "08", "09",
+            "10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
+            "20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
+            "30", "31", "32", "33", "34", "35", "36", "37", "38", "39",
+            "40", "41", "42", "43", "44", "45", "46", "47", "48", "49",
+            "50", "51", "52", "53", "54", "55", "56", "57", "58", "59"
+        ]
+    }
+
+    pure function generate-second-list() -> [string] {
+        [
+            "00", "01", "02", "03", "04", "05", "06", "07", "08", "09",
+            "10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
+            "20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
+            "30", "31", "32", "33", "34", "35", "36", "37", "38", "39",
+            "40", "41", "42", "43", "44", "45", "46", "47", "48", "49",
+            "50", "51", "52", "53", "54", "55", "56", "57", "58", "59"
+        ]
+    }
+
+    pure function parse-int(s: string) -> int {
+        s.to-float()
+    }
+}

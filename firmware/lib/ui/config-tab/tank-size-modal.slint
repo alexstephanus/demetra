@@ -1,0 +1,36 @@
+import { Button } from "std-widgets.slint";
+import { NumericKeypad } from "@ui/components/numeric_keypad.slint";
+
+export component TankSizeModal inherits Rectangle {
+    // Properties
+    in-out property <bool> modal-visible: false;
+    in-out property <float> current-tank-size: 0.0;
+    
+    // Callbacks
+    callback close();
+    callback save(float);
+
+    // Full screen overlay when visible
+    visible: root.modal-visible;
+    width: 100%;
+    height: 100%;
+
+    // Numeric keypad takes the full screen
+    keypad := NumericKeypad {
+        width: root.width;
+        height: root.height;
+        prompt: "Enter tank volume in liters:";
+        display-value: root.current-tank-size.to-fixed(1);
+        min-value: 0.0;
+        max-value: 10000.0;
+        
+        submit(new-value) => {
+            root.save(new-value);
+            root.close();
+        }
+        
+        cancel() => {
+            root.close();
+        }
+    }
+}

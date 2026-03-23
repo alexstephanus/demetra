@@ -1,0 +1,128 @@
+import { Button } from "std-widgets.slint";
+import { NumericSelector } from "../components/numeric-selector.slint";
+
+export enum OrpCalibrationWorkflowStep { 
+    Unstarted,
+    GettingCalibrationValue,
+    MeasuringCalibration,
+    Complete,
+}
+
+component MeasuringOrpIndicator {
+    in property <float> orp-value;
+
+    Text {
+        text: "Measuring Voltage For\n" + orp-value.to-fixed(0) + " mV Calibration Solution";
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        wrap: word-wrap;
+    }
+}
+
+component OrpCalibrationSummaryDisplay {
+    in property <float> calibration-offset;
+
+    callback enable-orp;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+
+        Text {
+            text: "Calibration Complete.";
+            color: black;
+            font-size: 24pt;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Text {
+            color: black;
+            text: "Calibration offset: " + calibration-offset.to-fixed(1) + " mV\nYour ORP probe has been calibrated successfully.";
+            font-size: 18pt;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Text {
+            color: black;
+            text: "If you have an ORP probe, you can use it to measure the ORP of the solution you're using.";
+            font-size: 18pt;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Rectangle {
+            height: 20%;
+            border-radius: 5px;
+            background: green;
+
+            Button {
+                text: "My ORP probe is back in the reservoir. Resume ORP measurements.";
+                clicked => {
+                    root.enable-orp();
+                }
+            }
+        }
+    }
+}
+
+export component OrpCalibrationWorkflowUi inherits Rectangle {
+    out property <OrpCalibrationWorkflowStep> state: Unstarted;
+    visible: state != OrpCalibrationWorkflowStep.Unstarted;
+    width: 100%;
+    height: 100%;
+    background: white;
+
+    property <float> calibration-solution: 0.0;
+
+    function reset() {
+        self.state = OrpCalibrationWorkflowStep.Unstarted;
+        calibration-solution = 0.0;
+        orp_solution_selector.reset();
+    }
+
+    callback progress-state();
+    
+    progress-state() => { 
+        if (self.state == OrpCalibrationWorkflowStep.Unstarted) { self.state = OrpCalibrationWorkflowStep.GettingCalibrationValue }
+        else if (self.state == OrpCalibrationWorkflowStep.GettingCalibrationValue) { self.state = OrpCalibrationWorkflowStep.MeasuringCalibration }
+        else if (self.state == OrpCalibrationWorkflowStep.MeasuringCalibration) { self.state = OrpCalibrationWorkflowStep.Complete }
+    }
+
+    callback complete-measurement();
+
+    complete-measurement() => {
+        reset();
+    }
+
+    callback cancel();
+
+    orp-solution-selector := NumericSelector {
+        visible: parent.state == OrpCalibrationWorkflowStep.GettingCalibrationValue;
+        display-text: "Select ORP Calibration\nSolution Value";
+        default-options: [222.0, 256.0, 400.0];
+        decimal-places: 0;
+        min-value: 0.0;
+        max-value: 1000.0;
+
+        selection-confirmed(value) => {
+            calibration-solution = value;
+            parent.progress-state();
+        }
+    }
+
+    orp-measurement-indicator := MeasuringOrpIndicator {
+        visible: root.state == OrpCalibrationWorkflowStep.MeasuringCalibration;
+        orp-value: root.calibration-solution;
+    }
+
+    calibration-summary-display := OrpCalibrationSummaryDisplay {
+        visible: root.state == OrpCalibrationWorkflowStep.Complete;
+        calibration-offset: 0.0;
+    }
+}

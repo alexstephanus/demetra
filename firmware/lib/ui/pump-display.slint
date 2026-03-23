@@ -1,0 +1,245 @@
+
+
+import { DosingPumpModal } from "@ui/pumps/dosing-pump-modal.slint";
+import { WorkflowUiState, PumpCalibrationWorkflowStep } from "@ui/state/workflow-state.slint";
+import { AppColors } from "@ui/colors.slint";
+import { Status, DosingPump, PumpHelpers } from "@ui/state/enums.slint";
+import { PumpUiState, DosingPumpUiState, TreatmentSolutionType, UiTreatmentSolution, AppUiState } from "@ui/state/state.slint";
+import { PumpCalibrationWorkflowUi } from "@ui/pumps/pump-calibration-workflow.slint";
+import { NavigationBar } from "@ui/state/navigation.slint";
+
+
+component DosingPump inherits Rectangle {
+    in property <int> pump-number;
+    in property <DosingPumpUiState> pump-state;
+    in-out property <bool> modal-visible: false;
+
+    callback pump-clicked();
+
+    border-radius: 10px;
+    border-width: 2px;
+    border-color: AppColors.text-primary;
+    background: {
+        if (!root.pump-state.enabled) { AppColors.status-disabled }  // Gray - disabled
+        else if (root.pump-state.treatment-solution.solution-type == TreatmentSolutionType.unconfigured) { AppColors.status-disabled }  // Light gray - unconfigured
+        else if (root.pump-state.status == Status.ok) { AppColors.status-ok }  // Green - OK
+        else { AppColors.status-error }  // Red - error
+    };
+
+    // Pump display name logic
+    property <string> display-name: {
+        if (root.pump-state.name != "") { root.pump-state.name }
+        else { "Pump " + root.pump-number }
+    };
+
+    // Treatment solution display text
+    property <string> treatment-text: {
+        if (root.pump-state.treatment-solution.solution-type == TreatmentSolutionType.phUp) {
+            "pH Up\n" + root.pump-state.treatment-solution.solution-strength.to-fixed(1)
+        }
+        else if (root.pump-state.treatment-solution.solution-type == TreatmentSolutionType.phDown) {
+            "pH Down\n" + root.pump-state.treatment-solution.solution-strength.to-fixed(1)
+        }
+        else if (root.pump-state.treatment-solution.solution-type == TreatmentSolutionType.orpTreatment) {
+            "ORP Treatment\n" + root.pump-state.treatment-solution.solution-strength.to-fixed(0) + " mV"
+        }
+        else if (root.pump-state.treatment-solution.solution-type == TreatmentSolutionType.nutrient) {
+            "Nutrient\n" + root.pump-state.treatment-solution.solution-strength.to-fixed(1) + " EC"
+        }
+        else { "Unconfigured" }
+    };
+
+    TouchArea {
+        clicked => { 
+            root.pump-clicked();
+        }
+    }
+
+    VerticalLayout {
+        padding: 8px;
+        spacing: 5px;
+        
+        Text {
+            text: root.display-name;
+            font-size: 14px;
+            font-weight: 700;
+            color: white;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+        
+        Text {
+            text: root.treatment-text;
+            font-size: 12px;
+            color: white;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+}
+
+component DosingPumps inherits Rectangle {
+    in-out property <bool> show-pump-modal: false;
+    in-out property <DosingPump> active-pump: DosingPump.DoseOne;
+
+    GridLayout {
+        padding: 15px;
+        spacing: 10px;
+
+        // Row 1: Pumps 0 and 1
+        Row {
+            DosingPump {
+                col: 0;
+                preferred-width: 0;
+                pump-number: 0;
+                pump-state: PumpUiState.dosing-pump-states[0];
+
+                pump-clicked() => {
+                    root.active-pump = DosingPump.DoseOne;
+                    root.show-pump-modal = true;
+                }
+            }
+
+            DosingPump {
+                col: 1;
+                preferred-width: 0;
+                pump-number: 1;
+                pump-state: PumpUiState.dosing-pump-states[1];
+
+                pump-clicked() => {
+                    root.active-pump = DosingPump.DoseTwo;
+                    root.show-pump-modal = true;
+                }
+            }
+        }
+
+        // Row 2: Pumps 2 and 3
+        Row {
+            DosingPump {
+                col: 0;
+                preferred-width: 0;
+                pump-number: 2;
+                pump-state: PumpUiState.dosing-pump-states[2];
+
+                pump-clicked() => {
+                    root.active-pump = DosingPump.DoseThree;
+                    root.show-pump-modal = true;
+                }
+            }
+
+            DosingPump {
+                col: 1;
+                preferred-width: 0;
+                pump-number: 3;
+                pump-state: PumpUiState.dosing-pump-states[3];
+
+                pump-clicked() => {
+                    root.active-pump = DosingPump.DoseFour;
+                    root.show-pump-modal = true;
+                }
+            }
+        }
+
+        // Row 3: Pumps 4 and 5
+        Row {
+            DosingPump {
+                col: 0;
+                preferred-width: 0;
+                pump-number: 4;
+                pump-state: PumpUiState.dosing-pump-states[4];
+
+                pump-clicked() => {
+                    root.active-pump = DosingPump.DoseFive;
+                    root.show-pump-modal = true;
+                }
+            }
+
+            DosingPump {
+                col: 1;
+                preferred-width: 0;
+                pump-number: 5;
+                pump-state: PumpUiState.dosing-pump-states[5];
+
+                pump-clicked() => {
+                    root.active-pump = DosingPump.DoseSix;
+                    root.show-pump-modal = true;
+                }
+            }
+        }
+    }
+}
+
+export component PumpDisplay inherits Rectangle {
+    in-out property <bool> show-pump-modal: false;
+    in-out property <DosingPump> active-pump: DosingPump.DoseOne;
+
+    VerticalLayout {
+        spacing: 0px;
+
+        NavigationBar {
+            current-tab <=> AppUiState.current-tab;
+            can-switch: true;
+        }
+
+        dosing-pumps := DosingPumps {
+            show-pump-modal <=> root.show-pump-modal;
+            active-pump <=> root.active-pump;
+        }
+    }
+
+    pump-modal := DosingPumpModal {
+        modal-visible: root.show-pump-modal;
+        pump: root.active-pump;
+        pump-state: PumpUiState.dosing-pump-states[PumpHelpers.get-dosing-pump-array-index(root.active-pump)];
+
+        close() => { root.show-pump-modal = false; }
+        rename-pump(pump, name) => {
+            PumpUiState.rename-pump(PumpHelpers.get-dosing-pump-array-index(pump), name);
+        }
+        configure-treatment(pump, solution) => {
+            PumpUiState.update-treatment-solution(PumpHelpers.get-dosing-pump-array-index(pump), solution);
+        }
+        toggle-enabled(pump) => {
+            PumpUiState.dosing-pump-states[PumpHelpers.get-dosing-pump-array-index(pump)].enabled ?
+                PumpUiState.disable-pump(PumpHelpers.get-dosing-pump-array-index(pump)) :
+                PumpUiState.enable-pump(PumpHelpers.get-dosing-pump-array-index(pump));
+        }
+        start-calibration(pump) => {
+            WorkflowUiState.start-pump-calibration(PumpHelpers.get-dosing-pump-display-number(pump));
+            root.show-pump-modal = false;
+        }
+        start-volumetric-dose(pump, volume-ml) => {
+            WorkflowUiState.run-dosing-pump-volumetric(PumpHelpers.get-dosing-pump-display-number(pump), volume-ml);
+        }
+        start-manual-pump(pump) => {
+            WorkflowUiState.start-dosing-pump(PumpHelpers.get-dosing-pump-display-number(pump));
+        }
+        stop-manual-dose(pump) => {
+            WorkflowUiState.stop-dosing-pump(PumpHelpers.get-dosing-pump-display-number(pump));
+        }
+    }
+
+    if WorkflowUiState.pump-calibration-state != PumpCalibrationWorkflowStep.Inactive: PumpCalibrationWorkflowUi {
+        width: 100%;
+        height: 100%;
+        calibration-state: WorkflowUiState.pump-calibration-state;
+        pump-number: WorkflowUiState.calibrating-pump-number;
+        pump-3s-volume: WorkflowUiState.pump-3s-volume;
+        pump-10s-volume: WorkflowUiState.pump-10s-volume;
+        pump-30s-volume: WorkflowUiState.pump-30s-volume;
+
+        cancel() => {
+            WorkflowUiState.reset-pump-calibration();
+        }
+
+        complete-measurement() => {
+            WorkflowUiState.save-dosing-pump-calibration(
+                WorkflowUiState.calibrating-pump-number,
+                WorkflowUiState.pump-3s-volume,
+                WorkflowUiState.pump-10s-volume,
+                WorkflowUiState.pump-30s-volume
+            );
+            WorkflowUiState.reset-pump-calibration();
+        }
+    }
+}

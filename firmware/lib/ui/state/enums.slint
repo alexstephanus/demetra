@@ -1,0 +1,70 @@
+
+@rust-attr(derive(serde::Deserialize, serde::Serialize))
+export enum Status { ok, error }
+
+@rust-attr(derive(serde::Deserialize, serde::Serialize))
+export enum SensorType { ph, conductivity, orp, temperature }
+
+@rust-attr(derive(serde::Deserialize, serde::Serialize))
+export enum DosingPump {
+    DoseOne,
+    DoseTwo,
+    DoseThree,
+    DoseFour,
+    DoseFive,
+    DoseSix
+}
+
+@rust-attr(derive(serde::Deserialize, serde::Serialize))
+export enum Outlet {
+    One,
+    Two,
+    Three,
+    Four,
+}
+
+export enum ManualDosingMode {
+    Select,
+    VolumetricDose,
+    ManualControl
+}
+
+export global PumpHelpers {
+    pure public function get-dosing-pump-display-number(pump: DosingPump) -> int {
+        if (pump == DosingPump.DoseOne) { 1 }
+        else if (pump == DosingPump.DoseTwo) { 2 }
+        else if (pump == DosingPump.DoseThree) { 3 }
+        else if (pump == DosingPump.DoseFour) { 4 }
+        else if (pump == DosingPump.DoseFive) { 5 }
+        else if (pump == DosingPump.DoseSix) { 6 }
+        else { 0 }
+    }
+
+    pure public function get-dosing-pump-array-index(pump: DosingPump) -> int {
+        if (pump == DosingPump.DoseOne) { 0 }
+        else if (pump == DosingPump.DoseTwo) { 1 }
+        else if (pump == DosingPump.DoseThree) { 2 }
+        else if (pump == DosingPump.DoseFour) { 3 }
+        else if (pump == DosingPump.DoseFive) { 4 }
+        else if (pump == DosingPump.DoseSix) { 5 }
+        else { 0 }
+    }
+}
+
+export global OutletHelpers {
+    pure public function get-outlet-display-number(outlet: Outlet) -> int {
+        if (outlet == Outlet.One) { 1 }
+        else if (outlet == Outlet.Two) { 2 }
+        else if (outlet == Outlet.Three) { 3 }
+        else if (outlet == Outlet.Four) { 4 }
+        else { 0 }
+    }
+
+    pure public function get-outlet-array-index(outlet: Outlet) -> int {
+        if (outlet == Outlet.One) { 0 }
+        else if (outlet == Outlet.Two) { 1 }
+        else if (outlet == Outlet.Three) { 2 }
+        else if (outlet == Outlet.Four) { 3 }
+        else { 0 }
+    }
+}

@@ -1,0 +1,138 @@
+import { Button } from "std-widgets.slint";
+import { SensorUiState, AppUiState } from "@ui/state/state.slint";
+import { SensorType } from "@ui/state/enums.slint";
+import { NumericKeypad } from "@ui/components/numeric_keypad.slint";
+
+export component RangeConfigModal inherits Rectangle {
+    // Properties
+    in-out property <bool> modal-visible: false;
+    in property <string> sensor-name: "pH";
+    in property <SensorType> sensor-type: SensorType.ph;
+
+    // State for the numeric keypad
+    in-out property <bool> keypad-visible: false;
+    in-out property <bool> is-minimum: true;
+
+    // Callbacks
+    callback close();
+
+    visible: root.modal-visible;
+
+    background-overlay := Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #00000080; // Semi-transparent black
+
+        TouchArea {
+            clicked => { root.close(); }
+        }
+    }
+
+    if root.keypad-visible: NumericKeypad {
+        width: 100%;
+        height: 100%;
+        display-value <=> AppUiState.keypad-display-value;
+        prompt: {
+            let range-type = root.is-minimum ? "minimum" : "maximum";
+            "Set " + range-type + " " + root.sensor-name + " value:"
+        }
+        min-value: {
+            if (root.sensor-type == SensorType.ph) { 0.0 }
+            else if (root.sensor-type == SensorType.conductivity) { 0.0 }
+            else if (root.sensor-type == SensorType.orp) { 0.0 }
+            else { -50.0 }
+        }
+        max-value: {
+            if (root.sensor-type == SensorType.ph) { 14.0 }
+            else if (root.sensor-type == SensorType.conductivity) { 5000.0 }
+            else if (root.sensor-type == SensorType.orp) { 1000.0 }
+            else { 100.0 }
+        }
+
+        submit(value) => {
+            if (root.is-minimum) {
+                SensorUiState.set-sensor-min-value(root.sensor-type, value);
+            } else {
+                SensorUiState.set-sensor-max-value(root.sensor-type, value);
+            }
+            root.keypad-visible = false;
+        }
+        cancel() => {
+            root.keypad-visible = false;
+        }
+    }
+
+    if !root.keypad-visible: modal-content := Rectangle {
+        width: min(220px, root.width - 60px);
+        height: min(280px, root.height - 60px);
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+
+        background: white;
+        border-radius: 15px;
+        border-width: 2px;
+        border-color: #333333;
+        drop-shadow-blur: 10px;
+        drop-shadow-color: #00000040;
+
+        TouchArea {
+            // Prevent clicks from propagating to background
+            clicked => { /* no-op */ }
+        }
+
+        VerticalLayout {
+            padding: 25px;
+            spacing: 20px;
+
+            Text {
+                text: root.sensor-name + " Range";
+                font-size: 18px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                color: #333333;
+            }
+
+            VerticalLayout {
+                spacing: 18px;
+
+                Button {
+                    text: "Set minimum value";
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.is-minimum = true;
+                        // Set initial value in the keypad
+                        if (root.sensor-type == SensorType.ph) {
+                            AppUiState.keypad-set-display-value(SensorUiState.ph-min-acceptable.to-fixed(1));
+                        } else if (root.sensor-type == SensorType.conductivity) {
+                            AppUiState.keypad-set-display-value(SensorUiState.ec-min-acceptable.to-fixed(1));
+                        } else if (root.sensor-type == SensorType.orp) {
+                            AppUiState.keypad-set-display-value(SensorUiState.orp-min-acceptable.to-fixed(1));
+                        } else {
+                            AppUiState.keypad-set-display-value(SensorUiState.temperature-min-acceptable.to-fixed(1));
+                        }
+                        root.keypad-visible = true;
+                    }
+                }
+
+                Button {
+                    text: "Set maximum value";
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.is-minimum = false;
+                        // Set initial value in the keypad
+                        if (root.sensor-type == SensorType.ph) {
+                            AppUiState.keypad-set-display-value(SensorUiState.ph-max-acceptable.to-fixed(1));
+                        } else if (root.sensor-type == SensorType.conductivity) {
+                            AppUiState.keypad-set-display-value(SensorUiState.ec-max-acceptable.to-fixed(1));
+                        } else if (root.sensor-type == SensorType.orp) {
+                            AppUiState.keypad-set-display-value(SensorUiState.orp-max-acceptable.to-fixed(1));
+                        } else {
+                            AppUiState.keypad-set-display-value(SensorUiState.temperature-max-acceptable.to-fixed(1));
+                        }
+                        root.keypad-visible = true;
+                    }
+                }
+            }
+        }
+    }
+}

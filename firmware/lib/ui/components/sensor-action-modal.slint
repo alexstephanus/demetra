@@ -1,0 +1,127 @@
+import { Button } from "std-widgets.slint";
+import { SensorUiState } from "../state/state.slint";
+
+export component SensorActionModal inherits Rectangle {
+    // Properties
+    in-out property <bool> modal-visible: false;
+    in property <string> sensor-name: "pH";
+    in-out property <bool> measuring: false;
+    in property <bool> sensor-enabled: true;
+    in property <bool> show-calibration: true;
+    in property <bool> show-range-config: true;
+    in property <bool> show-set-beta: false;
+
+    // Callbacks
+    callback close();
+    callback toggle-enabled();
+    callback start-calibration();
+    callback measure-now();
+    callback configure-range();
+    callback view-history();
+    callback set-beta();
+
+    visible: root.modal-visible;
+
+    background-overlay := Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #00000080; // Semi-transparent black
+
+        TouchArea {
+            clicked => { root.close(); }
+        }
+    }
+
+    modal-content := Rectangle {
+        width: min(220px, root.width - 60px);
+        height: min(360px, root.height - 40px);
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        
+        background: white;
+        border-radius: 15px;
+        border-width: 2px;
+        border-color: #333333;
+        drop-shadow-blur: 10px;
+        drop-shadow-color: #00000040;
+        
+        TouchArea {
+            // Prevent clicks from propagating to background
+            clicked => { /* no-op */ }
+        }
+
+        VerticalLayout {
+            padding: 25px;
+            spacing: 20px;
+            
+            Text {
+                text: root.sensor-name;
+                font-size: 20px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                color: #333333;
+            }
+            
+            // Action buttons - maximized for touch
+            VerticalLayout {
+                spacing: 18px;
+                
+                Button {
+                    text: root.measuring ? "Measuring..." : "One-off Measurement";
+                    enabled: root.sensor-enabled && !root.measuring;
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.measure-now();
+                    }
+                }
+
+                Button {
+                    text: "View History";
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.view-history();
+                    }
+                }
+
+                if root.show-calibration: Button {
+                    text: "Calibrate";
+                    enabled: root.sensor-enabled && !root.measuring;
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.start-calibration();
+                        root.close();
+                    }
+                }
+
+                if root.show-range-config: Button {
+                    text: "Change Allowed Range";
+                    enabled: !root.measuring;
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.configure-range();
+                        root.close();
+                    }
+                }
+
+                if root.show-set-beta: Button {
+                    text: "Set Thermistor Beta";
+                    enabled: !root.measuring;
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.set-beta();
+                        root.close();
+                    }
+                }
+
+                Button {
+                    text: root.sensor-enabled ? "Disable" : "Enable";
+                    enabled: !root.measuring;
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.toggle-enabled();
+                    }
+                }
+            }
+        }
+    }
+}

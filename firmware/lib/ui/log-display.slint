@@ -1,0 +1,62 @@
+import { ListView } from "std-widgets.slint";
+import { NavigationBar } from "@ui/state/navigation.slint";
+import { AppUiState, LogUiState } from "@ui/state/state.slint";
+import { AppColors } from "@ui/colors.slint";
+
+export component LogDisplay inherits VerticalLayout {
+    NavigationBar {
+        current-tab <=> AppUiState.current-tab;
+        can-switch: true;
+    }
+
+    if LogUiState.recent-errors.length == 0: Rectangle {
+        vertical-stretch: 1;
+        Text {
+            text: "No errors";
+            color: AppColors.text-secondary;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    if LogUiState.recent-errors.length > 0: ListView {
+        vertical-stretch: 1;
+        mouse-drag-pan-enabled: true;
+        for entry in LogUiState.recent-errors: VerticalLayout {
+            height: 53px;
+
+            VerticalLayout {
+                padding: 6px;
+                spacing: 2px;
+                vertical-stretch: 1;
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: entry.category;
+                        font-size: 11px;
+                        color: AppColors.status-error;
+                    }
+                    Text {
+                        text: entry.timestamp;
+                        font-size: 11px;
+                        color: AppColors.text-secondary;
+                        horizontal-stretch: 1;
+                        horizontal-alignment: right;
+                    }
+                }
+                Text {
+                    text: entry.message;
+                    font-size: 12px;
+                    color: AppColors.text-primary;
+                    overflow: elide;
+                }
+            }
+
+            Rectangle {
+                height: 1px;
+                background: AppColors.background-border;
+            }
+        }
+    }
+}

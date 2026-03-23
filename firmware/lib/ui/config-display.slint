@@ -1,0 +1,344 @@
+import { Button, ScrollView } from "std-widgets.slint";
+import { TemperatureDisplayUnit, ConductivityDisplayUnit, AppUiState } from "@ui/state/state.slint";
+import { UnitSelectorModal } from "@ui/config-tab/unit-selector-modal.slint";
+import { TankSizeModal } from "@ui/config-tab/tank-size-modal.slint";
+import { DateSettingModal } from "@ui/config-tab/date-setting-modal.slint";
+import { TimeSettingModal } from "@ui/config-tab/time-setting-modal.slint";
+import { NavigationBar } from "@ui/state/navigation.slint";
+
+export component ConfigurationDisplay inherits Rectangle {
+    // Current configuration values to display
+    in-out property <float> tank-size-liters: 0.0;
+    in-out property <TemperatureDisplayUnit> temperature-unit: TemperatureDisplayUnit.celsius;
+    in-out property <ConductivityDisplayUnit> conductivity-unit: ConductivityDisplayUnit.us-per-cm;
+    in-out property <string> current-time-display: "Not Set";
+
+    // Modal visibility states
+    in-out property <bool> tank-size-modal-visible: false;
+    in-out property <bool> temperature-modal-visible: false;
+    in-out property <bool> conductivity-modal-visible: false;
+    in-out property <bool> date-modal-visible: false;
+    in-out property <bool> time-modal-visible: false;
+
+    background: #f5f5f5;
+
+    VerticalLayout {
+        spacing: 15px;
+
+        NavigationBar {
+            current-tab <=> AppUiState.current-tab;
+            can-switch: true;
+        }
+
+        Text {
+            text: "Device Configuration";
+            font-size: 18px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            color: #333333;
+        }
+
+        ScrollView {
+            mouse-drag-pan-enabled: true;
+            height: 350px;
+
+            VerticalLayout {
+                padding: 20px;
+                spacing: 15px;
+            
+                tank-size := Rectangle {
+                    border-radius: 10px;
+                    background: white;
+                    border-width: 1px;
+                    border-color: #dddddd;
+                    
+                    VerticalLayout {
+                        padding: 15px;
+                        spacing: 10px;
+                        
+                        Text {
+                            text: "Tank Size";
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: #333333;
+                        }
+                        
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: space-between;
+                            
+                            VerticalLayout {
+                                alignment: start;
+                                spacing: 5px;
+                                
+                                Text {
+                                    text: "Volume:";
+                                    font-size: 12px;
+                                    color: #666666;
+                                }
+                                
+                                Text {
+                                    text: root.tank-size-liters.to-fixed(1) + " liters";
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                    color: #333333;
+                                }
+                            }
+                            
+                            Button {
+                                text: "Change";
+                                height: 35px;
+                                min-width: 70px;
+                                clicked => {
+                                    root.tank-size-modal-visible = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                preferred-units := Rectangle {
+                    border-radius: 10px;
+                    background: white;
+                    border-width: 1px;
+                    border-color: #dddddd;
+                    
+                    VerticalLayout {
+                        padding: 15px;
+                        spacing: 15px;
+                        
+                        Text {
+                            text: "Preferred Units";
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: #333333;
+                        }
+                        
+                        // Temperature Units Row
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: space-between;
+                            
+                            VerticalLayout {
+                                alignment: start;
+                                spacing: 5px;
+                                
+                                Text {
+                                    text: "Temperature:";
+                                    font-size: 12px;
+                                    color: #666666;
+                                }
+                                
+                                Text {
+                                    text: {
+                                        if (root.temperature-unit == TemperatureDisplayUnit.celsius) { "Celsius (°C)" }
+                                        else { "Fahrenheit (°F)" }
+                                    };
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                    color: #333333;
+                                }
+                            }
+                            
+                            Button {
+                                text: "Change";
+                                height: 35px;
+                                min-width: 70px;
+                                clicked => {
+                                    root.temperature-modal-visible = true;
+                                }
+                            }
+                        }
+                        
+                        Rectangle {
+                            height: 1px;
+                            background: #eeeeee;
+                        }
+                        
+                        // Conductivity Units Row
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: space-between;
+                            
+                            VerticalLayout {
+                                alignment: start;
+                                spacing: 5px;
+                                
+                                Text {
+                                    text: "Conductivity:";
+                                    font-size: 12px;
+                                    color: #666666;
+                                }
+                                
+                                Text {
+                                    text: {
+                                        if (root.conductivity-unit == ConductivityDisplayUnit.us-per-cm) { "µS/cm" }
+                                        else if (root.conductivity-unit == ConductivityDisplayUnit.ppm500) { "PPM (500 scale)" }
+                                        else { "PPM (700 scale)" }
+                                    };
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                    color: #333333;
+                                    wrap: word-wrap;
+                                }
+                            }
+                            
+                            Button {
+                                text: "Change";
+                                height: 35px;
+                                min-width: 70px;
+                                clicked => {
+                                    root.conductivity-modal-visible = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                date-time-section := Rectangle {
+                    border-radius: 10px;
+                    background: white;
+                    border-width: 1px;
+                    border-color: #dddddd;
+
+                    VerticalLayout {
+                        padding: 15px;
+                        spacing: 10px;
+
+                        Text {
+                            text: "Date & Time";
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: #333333;
+                        }
+
+                        HorizontalLayout {
+                            spacing: 10px;
+                            alignment: space-between;
+
+                            Text {
+                                text: root.current-time-display;
+                                font-size: 14px;
+                                font-weight: 500;
+                                color: #333333;
+                                vertical-alignment: center;
+                            }
+
+                            HorizontalLayout {
+                                spacing: 8px;
+
+                                Button {
+                                    text: "Set Date";
+                                    height: 35px;
+                                    min-width: 70px;
+                                    clicked => {
+                                        root.date-modal-visible = true;
+                                    }
+                                }
+
+                                Button {
+                                    text: "Set Time";
+                                    height: 35px;
+                                    min-width: 70px;
+                                    clicked => {
+                                        root.time-modal-visible = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    tank-size-modal := TankSizeModal {
+        modal-visible: root.tank-size-modal-visible;
+        current-tank-size: root.tank-size-liters;
+        
+        close() => {
+            root.tank-size-modal-visible = false;
+        }
+        
+        save(new-size) => {
+            root.tank-size-liters = new-size;
+            AppUiState.set-tank-size(new-size);
+        }
+    }
+
+    temperature-modal := UnitSelectorModal {
+        modal-visible: root.temperature-modal-visible;
+        title: "Temperature Display Unit";
+        option1: "Celsius (°C)";
+        option2: "Fahrenheit (°F)";
+        selected-index: root.temperature-unit == TemperatureDisplayUnit.celsius ? 0 : 1;
+        
+        close() => {
+            root.temperature-modal-visible = false;
+        }
+        
+        save(selected) => {
+            if (selected == 0) {
+                root.temperature-unit = TemperatureDisplayUnit.celsius;
+                AppUiState.set-temperature-display-unit(TemperatureDisplayUnit.celsius);
+            } else {
+                root.temperature-unit = TemperatureDisplayUnit.fahrenheit;
+                AppUiState.set-temperature-display-unit(TemperatureDisplayUnit.fahrenheit);
+            }
+        }
+    }
+    
+    conductivity-modal := UnitSelectorModal {
+        modal-visible: root.conductivity-modal-visible;
+        title: "Conductivity Display Unit";
+        option1: "µS/cm";
+        option2: "PPM (500 scale)";
+        option3: "PPM (700 scale)";
+        selected-index: {
+            if (root.conductivity-unit == ConductivityDisplayUnit.us-per-cm) { 0 }
+            else if (root.conductivity-unit == ConductivityDisplayUnit.ppm500) { 1 }
+            else { 2 }
+        };
+        
+        close() => {
+            root.conductivity-modal-visible = false;
+        }
+        
+        save(selected) => {
+            if (selected == 0) {
+                root.conductivity-unit = ConductivityDisplayUnit.us-per-cm;
+                AppUiState.set-conductivity-display-unit(ConductivityDisplayUnit.us-per-cm);
+            } else if (selected == 1) {
+                root.conductivity-unit = ConductivityDisplayUnit.ppm500;
+                AppUiState.set-conductivity-display-unit(ConductivityDisplayUnit.ppm500);
+            } else {
+                root.conductivity-unit = ConductivityDisplayUnit.ppm700;
+                AppUiState.set-conductivity-display-unit(ConductivityDisplayUnit.ppm700);
+            }
+        }
+    }
+
+    date-modal := DateSettingModal {
+        modal-visible: root.date-modal-visible;
+
+        close() => {
+            root.date-modal-visible = false;
+        }
+
+        save(year, month, day) => {
+            AppUiState.set-date(year, month, day);
+        }
+    }
+
+    time-modal := TimeSettingModal {
+        modal-visible: root.time-modal-visible;
+
+        close() => {
+            root.time-modal-visible = false;
+        }
+
+        save(hour, minute, second) => {
+            AppUiState.set-time(hour, minute, second);
+        }
+    }
+}

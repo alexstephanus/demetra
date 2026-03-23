@@ -1,0 +1,75 @@
+import { Button } from "std-widgets.slint";
+import { AppColors } from "@ui/colors.slint";
+
+export component ScheduleDeleteConfirmation inherits Rectangle {
+    in property <bool> show-modal: false;
+
+    callback confirm-delete();
+    callback cancel();
+
+    visible: root.show-modal;
+    width: 100%;
+    height: 100%;
+    background: #000000cc;
+
+    TouchArea {
+        clicked => {
+            root.cancel();
+        }
+    }
+
+    Rectangle {
+        width: 280px;
+        height: 200px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        background: AppColors.background-light;
+        border-radius: 8px;
+
+        TouchArea {}
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 15px;
+            alignment: center;
+
+            Text {
+                text: "Delete Run Window?";
+                font-size: 18px;
+                font-weight: 700;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "This action cannot be undone.";
+                font-size: 14px;
+                color: AppColors.text-secondary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            HorizontalLayout {
+                spacing: 15px;
+
+                Button {
+                    text: "Cancel";
+                    height: 45px;
+                    horizontal-stretch: 1;
+                    clicked => {
+                        root.cancel();
+                    }
+                }
+
+                Button {
+                    text: "Delete";
+                    height: 45px;
+                    horizontal-stretch: 1;
+                    clicked => {
+                        root.confirm-delete();
+                    }
+                }
+            }
+        }
+    }
+}

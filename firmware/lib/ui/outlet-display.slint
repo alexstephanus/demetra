@@ -1,0 +1,180 @@
+import { AppColors } from "@ui/colors.slint";
+import { NavigationBar } from "@ui/state/navigation.slint";
+import { AppUiState, PumpUiState, OutletUiState, OutletMode } from "@ui/state/state.slint";
+import { Status, Outlet, OutletHelpers } from "@ui/state/enums.slint";
+import { OutletModal } from "@ui/outlets/outlet-modal.slint";
+
+component OutletDisplay inherits Rectangle {
+    in property <Outlet> outlet: Outlet.One;
+    in property <OutletUiState> outlet-state;
+
+    callback outlet-clicked();
+
+    border-radius: 10px;
+    border-width: 2px;
+    border-color: AppColors.text-primary;
+    background: {
+        if (self.outlet-state.outlet-mode == OutletMode.unconfigured) {
+            AppColors.status-disabled
+        }
+        else if (self.outlet-state.status == Status.ok) {
+            AppColors.status-ok
+        }
+        else if (self.outlet-state.status == Status.error) {
+            AppColors.status-error
+        }
+        else {
+            AppColors.background-light
+        }
+    }
+
+    property <string> type-string: {
+        if (self.outlet-state.outlet-mode == OutletMode.fertigationPump) {
+            "Fertigation Pump"
+        }
+        else if (self.outlet-state.outlet-mode == OutletMode.solenoid) {
+            "Solenoid Valve"
+        }
+        else if (self.outlet-state.outlet-mode == OutletMode.stirPump) {
+            "Stir Pump"
+        }
+        else if (self.outlet-state.outlet-mode == OutletMode.generalPurpose) {
+            "General Purpose"
+        }
+        else {"Unconfigured"}
+    }
+
+    property <string> display-name: {
+        if (self.outlet-state.name != "") {
+            self.outlet-state.name
+        } else {
+            "Outlet " + OutletHelpers.get-outlet-display-number(self.outlet)
+        }
+    };
+
+    TouchArea {
+        clicked => {
+            root.outlet-clicked();
+        }
+    }
+
+    VerticalLayout {
+        padding: 8px;
+        spacing: 5px;
+
+        Text {
+            text: root.display-name;
+            font-size: 14px;
+            font-weight: 700;
+            color: white;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Text {
+            text: root.type-string;
+            font-size: 12px;
+            color: white;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+}
+
+export component OutletsDisplay inherits Rectangle {
+    in-out property <bool> show-outlet-modal: false;
+    in-out property <Outlet> active-outlet: Outlet.One;
+
+    VerticalLayout {
+        spacing: 0px;
+
+        NavigationBar {
+            current-tab <=> AppUiState.current-tab;
+            can-switch: true;
+        }
+
+        VerticalLayout {
+            padding: 15px;
+            spacing: 10px;
+
+            OutletDisplay {
+                outlet: Outlet.One;
+                outlet-state: PumpUiState.configurable-outlet-states[0];
+
+                outlet-clicked() => {
+                    root.active-outlet = Outlet.One;
+                    root.show-outlet-modal = true;
+                }
+            }
+
+            OutletDisplay {
+                outlet: Outlet.Two;
+                outlet-state: PumpUiState.configurable-outlet-states[1];
+
+                outlet-clicked() => {
+                    root.active-outlet = Outlet.Two;
+                    root.show-outlet-modal = true;
+                }
+            }
+
+            OutletDisplay {
+                outlet: Outlet.Three;
+                outlet-state: PumpUiState.configurable-outlet-states[2];
+
+                outlet-clicked() => {
+                    root.active-outlet = Outlet.Three;
+                    root.show-outlet-modal = true;
+                }
+            }
+
+            OutletDisplay {
+                outlet: Outlet.Four;
+                outlet-state: PumpUiState.configurable-outlet-states[3];
+
+                outlet-clicked() => {
+                    root.active-outlet = Outlet.Four;
+                    root.show-outlet-modal = true;
+                }
+            }
+        }
+    }
+
+    outlet-modal := OutletModal {
+        modal-visible: root.show-outlet-modal;
+        outlet: root.active-outlet;
+        outlet-state: PumpUiState.configurable-outlet-states[OutletHelpers.get-outlet-array-index(root.active-outlet)];
+
+        close() => { root.show-outlet-modal = false; }
+        rename-outlet(outlet, name) => {
+            PumpUiState.rename-outlet(OutletHelpers.get-outlet-array-index(outlet), name);
+        }
+        change-outlet-mode(outlet, type) => {
+            PumpUiState.change-outlet-mode(OutletHelpers.get-outlet-array-index(outlet), type);
+        }
+        toggle-enabled(outlet) => {
+            if (PumpUiState.configurable-outlet-states[OutletHelpers.get-outlet-array-index(outlet)].enable) {
+                PumpUiState.disable-outlet(OutletHelpers.get-outlet-array-index(outlet));
+            } else {
+                PumpUiState.enable-outlet(OutletHelpers.get-outlet-array-index(outlet));
+            }
+        }
+        run-manually(outlet) => {
+            PumpUiState.run-outlet-manually(OutletHelpers.get-outlet-array-index(outlet), 10);
+        }
+        schedule-add-window(outlet, window) => {
+            PumpUiState.schedule-add-window(OutletHelpers.get-outlet-array-index(outlet), window);
+        }
+        schedule-update-window(outlet, index, window) => {
+            PumpUiState.schedule-update-window(OutletHelpers.get-outlet-array-index(outlet), index, window);
+        }
+        schedule-delete-window(outlet, index) => {
+            PumpUiState.schedule-delete-window(OutletHelpers.get-outlet-array-index(outlet), index);
+        }
+        update-fill-time(outlet, seconds) => {
+            PumpUiState.update-solenoid-fill-time(OutletHelpers.get-outlet-array-index(outlet), seconds);
+        }
+        update-stir-duration(outlet, seconds) => {
+            PumpUiState.update-stir-duration(OutletHelpers.get-outlet-array-index(outlet), seconds);
+        }
+    }
+}

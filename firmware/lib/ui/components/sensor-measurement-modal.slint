@@ -1,0 +1,165 @@
+import { Button } from "std-widgets.slint";
+import { AppColors } from "@ui/colors.slint";
+
+export enum MeasurementStep {
+    instructions,
+    measuring,
+    results,
+}
+
+export component SensorMeasurementModal inherits Rectangle {
+    in property <bool> modal-visible: false;
+    in property <string> sensor-name: "pH";
+    in property <string> latest-reading: "";
+    in-out property <MeasurementStep> current-step: MeasurementStep.instructions;
+
+    property <MeasurementStep> effective-step: {
+        if (root.latest-reading != "" && root.current-step == MeasurementStep.measuring) {
+            MeasurementStep.results
+        } else {
+            root.current-step
+        }
+    };
+
+    callback close();
+    callback start-measurement();
+
+    visible: root.modal-visible;
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+    TouchArea {
+        width: 100%;
+        height: 100%;
+    }
+
+    VerticalLayout {
+        padding: 30px;
+        spacing: 30px;
+        alignment: center;
+
+        Text {
+            text: "Measure " + root.sensor-name;
+            font-size: 24px;
+            font-weight: 700;
+            color: AppColors.text-primary;
+            horizontal-alignment: center;
+        }
+
+        if root.effective-step == MeasurementStep.instructions: VerticalLayout {
+            spacing: 20px;
+            alignment: center;
+
+            Text {
+                text: "1. Place the " + root.sensor-name + " probe into the solution you want to measure";
+                font-size: 16px;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: "2. Ensure the probe is fully submerged";
+                font-size: 16px;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: "3. Press 'Start Measurement' when ready";
+                font-size: 16px;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+        }
+
+        if root.effective-step == MeasurementStep.measuring: VerticalLayout {
+            spacing: 20px;
+            alignment: center;
+
+            Text {
+                text: "Measuring " + root.sensor-name + "...";
+                font-size: 20px;
+                font-weight: 600;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "Please wait while the sensor stabilizes";
+                font-size: 14px;
+                color: AppColors.text-secondary;
+                horizontal-alignment: center;
+            }
+        }
+
+        if root.effective-step == MeasurementStep.results: VerticalLayout {
+            spacing: 20px;
+            alignment: center;
+
+            Text {
+                text: "Measurement Complete";
+                font-size: 20px;
+                font-weight: 600;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+            }
+
+            Rectangle {
+                width: 200px;
+                height: 80px;
+                border-radius: 10px;
+                border-width: 2px;
+                border-color: AppColors.background-border;
+                background: white;
+
+                Text {
+                    text: root.latest-reading;
+                    font-size: 28px;
+                    font-weight: 700;
+                    color: AppColors.text-primary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        x: 20px;
+        y: root.height - 60px;
+        width: root.width - 40px;
+        height: 50px;
+        spacing: 10px;
+
+        Button {
+            text: "Cancel";
+            visible: root.effective-step != MeasurementStep.results;
+            clicked => {
+                root.close();
+            }
+        }
+
+        Button {
+            text: "Start Measurement";
+            primary: true;
+            visible: root.effective-step == MeasurementStep.instructions;
+            clicked => {
+                root.current-step = MeasurementStep.measuring;
+                root.start-measurement();
+            }
+        }
+
+        Button {
+            text: "Done";
+            primary: true;
+            visible: root.effective-step == MeasurementStep.results;
+            clicked => {
+                root.close();
+            }
+        }
+    }
+}

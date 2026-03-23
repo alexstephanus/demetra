@@ -1,0 +1,247 @@
+import { Button, ScrollView } from "std-widgets.slint";
+import { AppColors } from "@ui/colors.slint";
+import { UiScheduledRunWindow } from "@ui/state/state.slint";
+
+component StyledButton inherits Rectangle {
+    in property <string> text;
+    callback clicked <=> touch.clicked;
+
+    background: AppColors.button-background;
+    border-radius: 4px;
+
+    touch := TouchArea {}
+
+    Text {
+        text: root.text;
+        color: AppColors.text-primary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component RunWindowRow inherits Rectangle {
+    in property <string> time-text;
+    in property <string> duration-text;
+    in property <string> days-text;
+    in property <int> window-index;
+
+    callback edit-clicked(int);
+    callback delete-clicked(int);
+
+    height: 65px;
+    background: AppColors.background-light;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: #404040;
+
+    HorizontalLayout {
+        padding-left: 15px;
+        padding-right: 0px;
+        spacing: 10px;
+
+        Rectangle {
+            horizontal-stretch: 1;
+
+            TouchArea {
+                width: 100%;
+                height: 100%;
+                clicked => {
+                    root.edit-clicked(root.window-index);
+                }
+            }
+
+            VerticalLayout {
+                spacing: 2px;
+
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    Rectangle {
+                        width: 60px;
+
+                        Text {
+                            text: root.time-text;
+                            font-size: 16px;
+                            color: AppColors.text-primary;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
+                        }
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+
+                        Text {
+                            text: root.duration-text;
+                            font-size: 16px;
+                            color: AppColors.text-primary;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
+                        }
+                    }
+                }
+
+                Text {
+                    text: root.days-text;
+                    font-size: 12px;
+                    color: AppColors.text-secondary;
+                    horizontal-alignment: left;
+                }
+            }
+        }
+
+        Rectangle {
+            width: 70px;
+            background: #ffcccc;
+            border-width: 1px;
+            border-color: #cc0000;
+
+            TouchArea {
+                width: 100%;
+                height: 100%;
+                clicked => {
+                    root.delete-clicked(root.window-index);
+                }
+            }
+
+            Text {
+                text: "Delete";
+                font-size: 14px;
+                color: #cc0000;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+export component ScheduleDisplay inherits Rectangle {
+    in property <string> outlet-name;
+    in property <[UiScheduledRunWindow]> run-windows: [];
+
+    callback close();
+    callback edit-window(int);
+    callback delete-window(int);
+    callback add-run-window();
+
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+    TouchArea {
+        width: 100%;
+        height: 100%;
+    }
+
+    Text {
+        x: 30px;
+        y: 25px;
+        width: root.width - 60px;
+        text: root.outlet-name + " Schedule";
+        font-size: 24px;
+        font-weight: 700;
+        color: AppColors.text-primary;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+    }
+
+    VerticalLayout {
+        y: 80px;
+        width: root.width;
+        height: root.height - 160px;
+        padding-left: 20px;
+        padding-right: 20px;
+
+        ScrollView {
+            viewport-width: root.width - 40px;
+            mouse-drag-pan-enabled: true;
+
+            VerticalLayout {
+                spacing: 10px;
+                width: 100%;
+
+                if root.run-windows.length == 0: Text {
+                    text: "No scheduled run windows.\nTap 'Add Run Window' to create one.";
+                    font-size: 16px;
+                    color: AppColors.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    wrap: word-wrap;
+                }
+
+                for window[index] in root.run-windows: RunWindowRow {
+                    width: parent.width;
+                    time-text: format-time(window.start-hour, window.start-minute);
+                    duration-text: format-duration(window.duration-value, window.duration-unit);
+                    days-text: format-days(window);
+                    window-index: index;
+
+                    edit-clicked(idx) => {
+                        root.edit-window(idx);
+                    }
+
+                    delete-clicked(idx) => {
+                        root.delete-window(idx);
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        y: root.height - 80px;
+        width: root.width;
+        height: 80px;
+
+        HorizontalLayout {
+            padding: 20px;
+            spacing: 15px;
+
+            StyledButton {
+                text: "Back";
+                height: 50px;
+                horizontal-stretch: 1;
+                clicked => {
+                    root.close();
+                }
+            }
+
+            StyledButton {
+                text: "Add Run Window";
+                height: 50px;
+                horizontal-stretch: 1;
+                clicked => {
+                    root.add-run-window();
+                }
+            }
+        }
+    }
+
+    pure function format-time(hour: int, minute: int) -> string {
+        return hour + ":" + (minute < 10 ? "0" + minute : minute);
+    }
+
+    pure function format-duration(value: int, unit: string) -> string {
+        return value + " " + unit;
+    }
+
+    pure function format-days(window: UiScheduledRunWindow) -> string {
+        if window.sunday && window.monday && window.tuesday && window.wednesday &&
+           window.thursday && window.friday && window.saturday {
+            return "Every day";
+        }
+        if window.monday && window.tuesday && window.wednesday && window.thursday &&
+           window.friday && !window.saturday && !window.sunday {
+            return "Weekdays";
+        }
+        if window.saturday && window.sunday && !window.monday && !window.tuesday &&
+           !window.wednesday && !window.thursday && !window.friday {
+            return "Weekends";
+        }
+
+        return (window.sunday ? "Sun " : "") + (window.monday ? "Mon " : "") +
+               (window.tuesday ? "Tue " : "") + (window.wednesday ? "Wed " : "") +
+               (window.thursday ? "Thu " : "") + (window.friday ? "Fri " : "") +
+               (window.saturday ? "Sat" : "");
+    }
+}

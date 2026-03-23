@@ -1,0 +1,753 @@
+import { Button } from "std-widgets.slint";
+import { NumericKeypad } from "@ui/components/numeric_keypad.slint";
+import { WorkflowUiState, PumpCalibrationWorkflowStep } from "@ui/state/workflow-state.slint";
+import { AppColors } from "@ui/colors.slint";
+import { AppUiState } from "@ui/state/state.slint";
+
+component StyledButton inherits Rectangle {
+    in property <string> text;
+    callback clicked <=> touch.clicked;
+
+    background: AppColors.button-background;
+    border-radius: 4px;
+
+    touch := TouchArea {}
+
+    Text {
+        text: root.text;
+        color: AppColors.text-primary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component ManualPumpControl inherits Rectangle {
+    in property <string> title-text;
+    in property <string> instruction-text;
+
+    callback pump-started();
+    callback pump-stopped();
+    callback continue-workflow();
+    callback cancel-workflow();
+
+    property <bool> pump-running: false;
+
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+    Text {
+        x: 30px;
+        y: 25px;
+        width: root.width - 60px;
+        text: root.title-text;
+        font-size: 24px;
+        font-weight: 700;
+        color: AppColors.text-primary;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+    }
+
+    VerticalLayout {
+        y: root.height * 0.2;
+        width: root.width;
+        height: root.height * 0.6;
+        alignment: center;
+        spacing: 25px;
+        padding: 30px;
+
+        Text {
+            text: root.instruction-text;
+            font-size: 16px;
+            color: AppColors.text-secondary;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Rectangle {
+            width: 100%;
+
+            StyledButton {
+                text: root.pump-running ? "Stop Pump" : "Start Pump";
+                height: 60px;
+                width: 100%;
+                clicked => {
+                    if (root.pump-running) {
+                        root.pump-stopped();
+                        root.pump-running = false;
+                    } else {
+                        root.pump-started();
+                        root.pump-running = true;
+                    }
+                }
+            }
+        }
+    }
+
+    if !root.pump-running: HorizontalLayout {
+        y: root.height * 0.82;
+        width: root.width;
+        height: 70px;
+        padding-left: 30px;
+        padding-right: 30px;
+        spacing: 20px;
+        alignment: center;
+
+        StyledButton {
+            text: "Cancel";
+            height: 60px;
+            horizontal-stretch: 1;
+            clicked => {
+                root.cancel-workflow();
+            }
+        }
+
+        StyledButton {
+            text: "Continue";
+            height: 60px;
+            horizontal-stretch: 1;
+            clicked => {
+                root.continue-workflow();
+            }
+        }
+    }
+}
+
+component VolumeInputScreen inherits Rectangle {
+    in property <string> instruction-text;
+    in property <string> duration-text;
+    in property <float> current-volume;
+
+    callback volume-confirmed(float);
+    callback cancel-calibration();
+
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+    NumericKeypad {
+        width: 100%;
+        height: 100%;
+        display-value <=> AppUiState.keypad-display-value;
+        prompt: "Enter volume (mL)";
+        min-value: 0.0;
+        max-value: 100.0;
+
+        submit(volume) => {
+            root.volume-confirmed(volume);
+        }
+        cancel() => {
+            root.cancel-calibration();
+        }
+    }
+}
+
+component DispensingIndicator inherits Rectangle {
+    in property <string> duration-text;
+    in property <int> target-duration-seconds;
+
+    callback dispensing-complete();
+    callback dispense-water();
+
+    property <int> remaining-seconds: root.target-duration-seconds;
+    property <bool> dispensing-started: false;
+    property <bool> timer-finished: root.remaining-seconds <= 0 && root.dispensing-started;
+
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+    timer := Timer {
+        interval: 1s;
+        running: root.dispensing-started && !root.timer-finished;
+        triggered => {
+            if (root.remaining-seconds > 0) {
+                root.remaining-seconds -= 1;
+            }
+        }
+    }
+
+    Text {
+        x: 30px;
+        y: 25px;
+        width: root.width - 60px;
+        text: root.duration-text;
+        font-size: 28px;
+        font-weight: 700;
+        color: AppColors.text-primary;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+    }
+
+    VerticalLayout {
+        y: root.height * 0.2;
+        width: root.width;
+        height: root.height * 0.6;
+        alignment: center;
+        spacing: 25px;
+        padding: 30px;
+
+        if !root.dispensing-started: VerticalLayout {
+            spacing: 25px;
+            alignment: center;
+
+            Text {
+                text: "Place your pump's outlet into the measurement container";
+                font-size: 16px;
+                color: AppColors.text-secondary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            Rectangle {
+                width: 100%;
+
+                StyledButton {
+                    text: "Start Dispensing";
+                    height: 60px;
+                    width: 100%;
+                    clicked => {
+                        root.dispensing-started = true;
+                        root.dispense-water();
+                    }
+                }
+            }
+        }
+
+        if root.dispensing-started && !root.timer-finished: VerticalLayout {
+            spacing: 12px;
+            alignment: center;
+
+            HorizontalLayout {
+                alignment: center;
+
+                Rectangle {
+                    width: 120px;
+                    height: 120px;
+                    border-radius: 60px;
+                    border-width: 4px;
+                    border-color: AppColors.text-primary;
+                    background: AppColors.background-light;
+
+                    Text {
+                        text: root.remaining-seconds.to-fixed(0) + "s";
+                        font-size: 32px;
+                        font-weight: 700;
+                        color: AppColors.text-primary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Text {
+                text: "Dispensing";
+                font-size: 24px;
+                font-weight: 700;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+            }
+        }
+
+        if root.timer-finished: VerticalLayout {
+            spacing: 15px;
+            alignment: center;
+
+            HorizontalLayout {
+                alignment: center;
+
+                Rectangle {
+                    width: 120px;
+                    height: 120px;
+                    border-radius: 60px;
+                    border-width: 4px;
+                    border-color: AppColors.status-ok;
+                    background: AppColors.status-ok;
+
+                    Text {
+                        text: "✓";
+                        font-size: 48px;
+                        font-weight: 700;
+                        color: white;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Text {
+                text: "Finished\nDispensing";
+                font-size: 24px;
+                font-weight: 700;
+                color: AppColors.status-ok;
+                horizontal-alignment: center;
+            }
+
+            Rectangle {
+                height: 30px;
+            }
+
+            HorizontalLayout {
+                spacing: 20px;
+
+                StyledButton {
+                    text: "Cancel";
+                    height: 60px;
+                    horizontal-stretch: 1;
+                    clicked => {
+                        WorkflowUiState.reset-pump-calibration();
+                    }
+                }
+
+                StyledButton {
+                    text: "Enter Volume";
+                    height: 60px;
+                    horizontal-stretch: 1;
+                    clicked => {
+                        root.dispensing-complete();
+                    }
+                }
+            }
+        }
+    }
+}
+
+component CalibrationInfoScreen inherits Rectangle {
+    callback start-calibration();
+    callback cancel-calibration();
+
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+    Text {
+        x: 30px;
+        y: 25px;
+        width: root.width - 60px;
+        text: "Pump " + WorkflowUiState.calibrating-pump-number + " Calibration";
+        font-size: 24px;
+        font-weight: 700;
+        color: AppColors.text-primary;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+    }
+
+    VerticalLayout {
+        y: root.height * 0.2;
+        width: root.width;
+        height: root.height * 0.6;
+        alignment: center;
+        spacing: 25px;
+        padding: 30px;
+
+        Text {
+            text: "To calibrate the pump, we'll dispense water for 3 different durations. You'll need to measure the volume (mL) or weight (g) of water dispensed as precisely as possible and input the measurement.";
+            font-size: 16px;
+            color: AppColors.text-secondary;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+
+    HorizontalLayout {
+        y: root.height * 0.82;
+        width: root.width;
+        height: 70px;
+        padding-left: 30px;
+        padding-right: 30px;
+        alignment: center;
+
+        StyledButton {
+            text: "Start";
+            height: 60px;
+            horizontal-stretch: 1;
+            clicked => {
+                root.start-calibration();
+            }
+        }
+    }
+}
+
+export component PumpCalibrationWorkflowUi inherits Rectangle {
+    in property <PumpCalibrationWorkflowStep> calibration-state: PumpCalibrationWorkflowStep.Inactive;
+    in property <int> pump-number: 0;
+    in property <float> pump-3s-volume: 0.0;
+    in property <float> pump-10s-volume: 0.0;
+    in property <float> pump-30s-volume: 0.0;
+
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+
+    callback cancel();
+    callback complete-measurement();
+
+    cancel() => {
+        WorkflowUiState.reset-pump-calibration();
+    }
+
+    complete-measurement() => {
+        WorkflowUiState.reset-pump-calibration();
+    }
+
+    if root.calibration-state == PumpCalibrationWorkflowStep.ShowingInfo: CalibrationInfoScreen {
+        start-calibration() => {
+            WorkflowUiState.advance-pump-calibration();
+        }
+
+        cancel-calibration() => {
+            WorkflowUiState.reset-pump-calibration();
+        }
+    }
+
+    if root.calibration-state == PumpCalibrationWorkflowStep.EmptyingTreatmentSolution: ManualPumpControl {
+        title-text: "Empty Treatment Solution";
+        instruction-text: "Place the pump's intake into an empty container and the outlet over your treatment solution container. Run the pump until the tubing is empty of treatment solution.";
+
+        pump-started() => {
+            WorkflowUiState.start-dosing-pump(WorkflowUiState.calibrating-pump-number);
+        }
+
+        pump-stopped() => {
+            WorkflowUiState.stop-dosing-pump(WorkflowUiState.calibrating-pump-number);
+        }
+
+        continue-workflow() => {
+            WorkflowUiState.advance-pump-calibration();
+        }
+
+        cancel-workflow() => {
+            WorkflowUiState.reset-pump-calibration();
+        }
+    }
+
+    if root.calibration-state == PumpCalibrationWorkflowStep.FillingWithWater: ManualPumpControl {
+        title-text: "Fill with Water";
+        instruction-text: "Place the pump's intake into clean water and the outlet into an empty container. Run the pump until the tubing is filled with water.";
+
+        pump-started() => {
+            WorkflowUiState.start-dosing-pump(WorkflowUiState.calibrating-pump-number);
+        }
+
+        pump-stopped() => {
+            WorkflowUiState.stop-dosing-pump(WorkflowUiState.calibrating-pump-number);
+        }
+
+        continue-workflow() => {
+            WorkflowUiState.advance-pump-calibration();
+        }
+
+        cancel-workflow() => {
+            WorkflowUiState.reset-pump-calibration();
+        }
+    }
+
+    if root.calibration-state == PumpCalibrationWorkflowStep.Dispensing3Seconds: DispensingIndicator {
+        duration-text: "3 seconds";
+        target-duration-seconds: 3;
+
+        dispense-water() => {
+            WorkflowUiState.run-dosing-pump(WorkflowUiState.calibrating-pump-number, 3);
+        }
+
+        dispensing-complete() => {
+            WorkflowUiState.advance-pump-calibration();
+        }
+    }
+    
+    if root.calibration-state == PumpCalibrationWorkflowStep.Recording3SecondVolume: VolumeInputScreen {
+        instruction-text: "The pump has finished dispensing for 3 seconds.";
+        duration-text: "3 second dispense";
+        current-volume: root.pump-3s-volume;
+
+        init => {
+            AppUiState.keypad-set-display-value("");
+        }
+
+        volume-confirmed(volume) => {
+            WorkflowUiState.pump-3s-volume = volume;
+            WorkflowUiState.advance-pump-calibration();
+        }
+
+        cancel-calibration() => {
+            WorkflowUiState.reset-pump-calibration();
+        }
+    }
+    
+    if root.calibration-state == PumpCalibrationWorkflowStep.Dispensing10Seconds: DispensingIndicator {
+        duration-text: "10 seconds";
+        target-duration-seconds: 10;
+
+        dispense-water() => {
+            WorkflowUiState.run-dosing-pump(WorkflowUiState.calibrating-pump-number, 10);
+        }
+
+        dispensing-complete() => {
+            WorkflowUiState.advance-pump-calibration();
+        }
+    }
+    
+    if root.calibration-state == PumpCalibrationWorkflowStep.Recording10SecondVolume: VolumeInputScreen {
+        instruction-text: "The pump has finished dispensing for 10 seconds.";
+        duration-text: "10 second dispense";
+        current-volume: root.pump-10s-volume;
+
+        init => {
+            AppUiState.keypad-set-display-value("");
+        }
+
+        volume-confirmed(volume) => {
+            WorkflowUiState.pump-10s-volume = volume;
+            WorkflowUiState.advance-pump-calibration();
+        }
+
+        cancel-calibration() => {
+            WorkflowUiState.reset-pump-calibration();
+        }
+    }
+    
+    if root.calibration-state == PumpCalibrationWorkflowStep.Dispensing30Seconds: DispensingIndicator {
+        duration-text: "30 seconds";
+        target-duration-seconds: 30;
+
+        dispense-water() => {
+            WorkflowUiState.run-dosing-pump(WorkflowUiState.calibrating-pump-number, 30);
+        }
+
+        dispensing-complete() => {
+            WorkflowUiState.advance-pump-calibration();
+        }
+    }
+    
+    if root.calibration-state == PumpCalibrationWorkflowStep.Recording30SecondVolume: VolumeInputScreen {
+        instruction-text: "The pump has finished dispensing for 30 seconds.";
+        duration-text: "30 second dispense";
+        current-volume: root.pump-30s-volume;
+
+        init => {
+            AppUiState.keypad-set-display-value("");
+        }
+
+        volume-confirmed(volume) => {
+            WorkflowUiState.pump-30s-volume = volume;
+            WorkflowUiState.advance-pump-calibration();
+        }
+
+        cancel-calibration() => {
+            WorkflowUiState.reset-pump-calibration();
+        }
+    }
+
+    if root.calibration-state == PumpCalibrationWorkflowStep.EmptyingWater: ManualPumpControl {
+        title-text: "Empty Water";
+        instruction-text: "Place the pump's intake into an empty container and the outlet over a drain or waste container. Run the pump until the tubing is empty of water.";
+
+        pump-started() => {
+            WorkflowUiState.start-dosing-pump(WorkflowUiState.calibrating-pump-number);
+        }
+
+        pump-stopped() => {
+            WorkflowUiState.stop-dosing-pump(WorkflowUiState.calibrating-pump-number);
+        }
+
+        continue-workflow() => {
+            WorkflowUiState.advance-pump-calibration();
+        }
+
+        cancel-workflow() => {
+            WorkflowUiState.reset-pump-calibration();
+        }
+    }
+
+    if root.calibration-state == PumpCalibrationWorkflowStep.RefillingTreatmentSolution: ManualPumpControl {
+        title-text: "Refill Treatment Solution";
+        instruction-text: "Place the pump's intake into your treatment solution and the outlet into an empty container. Run the pump until the tubing is filled with treatment solution.";
+
+        pump-started() => {
+            WorkflowUiState.start-dosing-pump(WorkflowUiState.calibrating-pump-number);
+        }
+
+        pump-stopped() => {
+            WorkflowUiState.stop-dosing-pump(WorkflowUiState.calibrating-pump-number);
+        }
+
+        continue-workflow() => {
+            WorkflowUiState.advance-pump-calibration();
+        }
+
+        cancel-workflow() => {
+            WorkflowUiState.reset-pump-calibration();
+        }
+    }
+
+    if root.calibration-state == PumpCalibrationWorkflowStep.ShowingCalibrationResults: Rectangle {
+        background: AppColors.background-light;
+
+        Text {
+            x: 30px;
+            y: 25px;
+            width: root.width - 60px;
+            text: "✓ Pump " + root.pump-number + " Calibrated";
+            font-size: 24px;
+            font-weight: 700;
+            color: AppColors.status-ok;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        VerticalLayout {
+            y: root.height * 0.2;
+            width: root.width;
+            height: root.height * 0.6;
+            alignment: center;
+            spacing: 25px;
+            padding: 30px;
+
+            VerticalLayout {
+                spacing: 10px;
+
+                Text {
+                    text: "Calibration Results:";
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: AppColors.text-primary;
+                    horizontal-alignment: center;
+                }
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    Text {
+                        text: "3 seconds:";
+                        font-size: 14px;
+                        color: AppColors.text-secondary;
+                    }
+                    Text {
+                        text: root.pump-3s-volume.to-fixed(1) + " mL";
+                        font-size: 14px;
+                        color: AppColors.text-primary;
+                    }
+                }
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    Text {
+                        text: "10 seconds:";
+                        font-size: 14px;
+                        color: AppColors.text-secondary;
+                    }
+                    Text {
+                        text: root.pump-10s-volume.to-fixed(1) + " mL";
+                        font-size: 14px;
+                        color: AppColors.text-primary;
+                    }
+                }
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    Text {
+                        text: "30 seconds:";
+                        font-size: 14px;
+                        color: AppColors.text-secondary;
+                    }
+                    Text {
+                        text: root.pump-30s-volume.to-fixed(1) + " mL";
+                        font-size: 14px;
+                        color: AppColors.text-primary;
+                    }
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: AppColors.background-border;
+                }
+
+                HorizontalLayout {
+                    alignment: space-between;
+                    Text {
+                        text: "Flow rate:";
+                        font-size: 14px; font-weight: 600;
+                        color: AppColors.text-primary;
+                    }
+                    Text {
+                        text: (root.pump-30s-volume / 30.0 * 60.0).to-fixed(1) + " mL/min";
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: AppColors.text-primary;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            y: root.height * 0.82;
+            width: root.width;
+            height: 70px;
+            padding-left: 30px;
+            padding-right: 30px;
+            spacing: 20px;
+            alignment: center;
+
+            StyledButton {
+                text: "Continue";
+                height: 60px;
+                horizontal-stretch: 1;
+                clicked => {
+                    WorkflowUiState.advance-pump-calibration();
+                }
+            }
+        }
+    }
+
+    if root.calibration-state == PumpCalibrationWorkflowStep.Complete: Rectangle {
+        background: AppColors.background-light;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 25px;
+            padding: 30px;
+
+            Text {
+                text: "✓";
+                font-size: 64px;
+                font-weight: 700;
+                color: AppColors.status-ok;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "Calibration Complete";
+                font-size: 24px;
+                font-weight: 700;
+                color: AppColors.text-primary;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "Pump " + root.pump-number + " is now calibrated and ready to use.";
+                font-size: 16px;
+                color: AppColors.text-secondary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+        }
+
+        HorizontalLayout {
+            y: root.height * 0.82;
+            width: root.width;
+            height: 70px;
+            padding-left: 30px;
+            padding-right: 30px;
+            alignment: center;
+
+            StyledButton {
+                text: "Done";
+                height: 60px;
+                horizontal-stretch: 1;
+                clicked => {
+                    root.complete-measurement();
+                }
+            }
+        }
+    }
+}

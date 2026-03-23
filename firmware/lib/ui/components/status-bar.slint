@@ -1,0 +1,147 @@
+import { AppColors } from "@ui/colors.slint";
+
+// Rectangle-based status indicator as an alternative to Path-based gauges
+export component StatusBar inherits Rectangle {
+    // Value range properties
+    in property <float> lowest-allowable-value: 25.0;
+    in property <float> current-value: 50.0;
+    in property <float> highest-allowable-value: 75.0;
+    
+    property <float> value-range: root.highest-allowable-value - root.lowest-allowable-value;
+    property <float> lowest-display-value: root.lowest-allowable-value - value-range / 2;
+    property <float> highest-display-value: root.highest-allowable-value + value-range / 2;
+
+    // Display properties
+    in property <string> label: "Value";
+    in property <string> most-recent-measurement: "";
+    in property <bool> sensor-enabled: true;
+
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: AppColors.background-border;
+    background: root.sensor-enabled ? AppColors.background-light : AppColors.status-disabled;
+    
+    // Calculate proportions for the colored sections
+    property <float> total-range: root.highest-display-value - root.lowest-display-value;
+    property <float> red-low-width: (root.lowest-allowable-value - root.lowest-display-value) / root.total-range;
+    property <float> green-width: (root.highest-allowable-value - root.lowest-allowable-value) / root.total-range;
+    property <float> red-high-width: (root.highest-display-value - root.highest-allowable-value) / root.total-range;
+    
+    // Calculate current value position (0.0 to 1.0)
+    property <float> current-position: (root.current-value - root.lowest-display-value) / root.total-range;
+    
+    // Calculate green zone edge positions (0.0 to 1.0)
+    property <float> green-start-position: (root.lowest-allowable-value - root.lowest-display-value) / root.total-range;
+    property <float> green-end-position: (root.highest-allowable-value - root.lowest-display-value) / root.total-range;
+    
+    if root.sensor-enabled: VerticalLayout {
+        padding: 6px;
+        spacing: 4px;
+
+        // Label and current value
+        Text {
+            text: root.label + ": " + root.most-recent-measurement;
+            font-size: 20px;
+            font-weight: 800;
+            color: AppColors.text-primary;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+        }
+
+        // Status bar with colored zones
+        Rectangle {
+            height: 20px;
+            border-radius: 3px;
+            border-width: 1px;
+            border-color: AppColors.background-border;
+            
+            // Background colored zones
+            HorizontalLayout {
+                // Red zone (low)
+                if root.red-low-width > 0: Rectangle {
+                    width: root.red-low-width * parent.width;
+                    background: AppColors.status-error;
+                    border-top-left-radius: 4px;
+                    border-bottom-left-radius: 4px;
+                }
+                
+                // Green zone (acceptable)
+                Rectangle {
+                    width: root.green-width * parent.width;
+                    background: AppColors.status-ok;
+                }
+                
+                // Red zone (high) 
+                if root.red-high-width > 0: Rectangle {
+                    width: root.red-high-width * parent.width;
+                    background: AppColors.status-error;
+                    border-top-right-radius: 4px;
+                    border-bottom-right-radius: 4px;
+                }
+            }
+            
+            // Current value indicator line - extends beyond the bar
+            Rectangle {
+                x: root.current-position * (parent.width - 4px) + 2px - 1px; // Center the line
+                y: -4px; // Extend above the bar
+                width: 2px;
+                height: parent.height + 8px; // Extend above and below
+                background: AppColors.current-indicator;
+                border-radius: 1px;
+            }
+            
+        }
+        
+        // Range labels with green zone indicators
+        Rectangle {
+            height: 15px;
+            
+            // Min value
+            Text {
+                x: 0px;
+                text: root.lowest-display-value.to-fixed(0);
+                font-size: 10px;
+                color: AppColors.text-secondary;
+                vertical-alignment: center;
+            }
+            
+            // Green zone start value
+            if root.green-start-position > 0: Text {
+                x: root.green-start-position * parent.width - 10px;
+                text: root.lowest-allowable-value.to-fixed(1);
+                font-size: 9px;
+                color: AppColors.text-secondary;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            
+            // Green zone end value
+            if root.green-end-position < 1: Text {
+                x: root.green-end-position * parent.width - 10px;
+                text: root.highest-allowable-value.to-fixed(1);
+                font-size: 9px;
+                color: AppColors.text-secondary;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            
+            // Max value
+            Text {
+                x: parent.width - 20px;
+                text: root.highest-display-value.to-fixed(0);
+                font-size: 10px;
+                color: AppColors.text-secondary;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    if !root.sensor-enabled: Text {
+        text: root.label + ": Disabled";
+        font-size: 20px;
+        color: AppColors.text-primary;
+        font-weight: 1000;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

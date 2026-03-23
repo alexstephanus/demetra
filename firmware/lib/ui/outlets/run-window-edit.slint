@@ -1,0 +1,346 @@
+import { Button, ComboBox } from "std-widgets.slint";
+import { AppColors } from "@ui/colors.slint";
+import { UiScheduledRunWindow } from "@ui/state/state.slint";
+
+component StyledButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked <=> touch.clicked;
+
+    background: root.enabled ? AppColors.button-background : AppColors.background-border;
+    border-radius: 4px;
+
+    touch := TouchArea {
+        enabled: root.enabled;
+    }
+
+    Text {
+        text: root.text;
+        color: root.enabled ? AppColors.text-primary : AppColors.text-secondary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component NumberSpinner inherits HorizontalLayout {
+    in property <string> display-value;
+    callback increment();
+    callback decrement();
+
+    spacing: 4px;
+
+    StyledButton {
+        text: "−";
+        width: 40px;
+        height: 40px;
+        clicked => { root.decrement(); }
+    }
+
+    Rectangle {
+        width: 50px;
+        height: 40px;
+        border-width: 1px;
+        border-color: AppColors.background-border;
+        border-radius: 4px;
+
+        Text {
+            text: root.display-value;
+            font-size: 18px;
+            color: AppColors.text-primary;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    StyledButton {
+        text: "+";
+        width: 40px;
+        height: 40px;
+        clicked => { root.increment(); }
+    }
+}
+
+component DayToggle inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    callback toggled();
+
+    width: 50px;
+    height: 40px;
+    background: root.selected ? AppColors.status-ok : transparent;
+    border-width: 1px;
+    border-color: AppColors.background-border;
+    border-radius: 4px;
+
+    TouchArea {
+        clicked => {
+            root.toggled();
+        }
+    }
+
+    Text {
+        text: root.label;
+        font-size: 13px;
+        color: root.selected ? AppColors.text-primary : AppColors.text-secondary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component RunWindowEdit inherits Rectangle {
+    in property <bool> is-new-window: true;
+    in-out property <int> start-hour: 12;
+    in-out property <int> start-minute: 0;
+    in-out property <int> duration-value: 15;
+    in-out property <string> duration-unit: "minutes";
+    in-out property <bool> sunday: true;
+    in-out property <bool> monday: true;
+    in-out property <bool> tuesday: true;
+    in-out property <bool> wednesday: true;
+    in-out property <bool> thursday: true;
+    in-out property <bool> friday: true;
+    in-out property <bool> saturday: true;
+
+    callback save(UiScheduledRunWindow);
+    callback cancel();
+    callback populate(UiScheduledRunWindow);
+
+    populate(window) => {
+        root.start-hour = window.start-hour;
+        root.start-minute = window.start-minute;
+        root.duration-value = window.duration-value;
+        root.duration-unit = window.duration-unit;
+        root.sunday = window.sunday;
+        root.monday = window.monday;
+        root.tuesday = window.tuesday;
+        root.wednesday = window.wednesday;
+        root.thursday = window.thursday;
+        root.friday = window.friday;
+        root.saturday = window.saturday;
+    }
+
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+    TouchArea {
+        width: 100%;
+        height: 100%;
+    }
+
+    Text {
+        x: 30px;
+        y: 25px;
+        width: root.width - 60px;
+        text: root.is-new-window ? "New Run Window" : "Edit Run Window";
+        font-size: 24px;
+        font-weight: 700;
+        color: AppColors.text-primary;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+    }
+
+    VerticalLayout {
+        y: 70px;
+        width: root.width;
+        height: root.height - 150px;
+        padding: 20px;
+        spacing: 20px;
+
+            VerticalLayout {
+                spacing: 10px;
+
+                Text {
+                    text: "Start Time";
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: AppColors.text-primary;
+                }
+
+                HorizontalLayout {
+                    spacing: 4px;
+                    alignment: start;
+
+                    NumberSpinner {
+                        display-value: format-two-digits(root.start-hour);
+                        increment => { root.start-hour = mod(root.start-hour + 1, 24); }
+                        decrement => { root.start-hour = mod(root.start-hour + 23, 24); }
+                    }
+
+                    Text {
+                        text: ":";
+                        font-size: 20px;
+                        color: AppColors.text-primary;
+                        vertical-alignment: center;
+                        width: 15px;
+                        horizontal-alignment: center;
+                    }
+
+                    NumberSpinner {
+                        display-value: format-two-digits(root.start-minute);
+                        increment => { root.start-minute = mod(root.start-minute + 5, 60); }
+                        decrement => { root.start-minute = mod(root.start-minute + 55, 60); }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 10px;
+
+                Text {
+                    text: "Duration";
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: AppColors.text-primary;
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+
+                    NumberSpinner {
+                        display-value: root.duration-value < 10 ? "0" + root.duration-value : root.duration-value;
+                        increment => {
+                            root.duration-value = clamp(root.duration-value + 1, 1, max-duration-value(root.duration-unit));
+                        }
+                        decrement => {
+                            root.duration-value = clamp(root.duration-value - 1, 1, max-duration-value(root.duration-unit));
+                        }
+                    }
+
+                    ComboBox {
+                        model: ["seconds", "minutes", "hours"];
+                        current-value: root.duration-unit;
+                        width: 100px;
+
+                        selected(value) => {
+                            root.duration-unit = value;
+                            root.duration-value = clamp(root.duration-value, 1, max-duration-value(value));
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 10px;
+
+                Text {
+                    text: "Days";
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: AppColors.text-primary;
+                }
+
+                HorizontalLayout {
+                    spacing: 5px;
+
+                    DayToggle {
+                        label: "Mon";
+                        selected: root.monday;
+                        toggled => {
+                            root.monday = !root.monday;
+                        }
+                    }
+
+                    DayToggle {
+                        label: "Tue";
+                        selected: root.tuesday;
+                        toggled => {
+                            root.tuesday = !root.tuesday;
+                        }
+                    }
+
+                    DayToggle {
+                        label: "Wed";
+                        selected: root.wednesday;
+                        toggled => {
+                            root.wednesday = !root.wednesday;
+                        }
+                    }
+
+                    DayToggle {
+                        label: "Thu";
+                        selected: root.thursday;
+                        toggled => {
+                            root.thursday = !root.thursday;
+                        }
+                    }
+
+                    DayToggle {
+                        label: "Fri";
+                        selected: root.friday;
+                        toggled => {
+                            root.friday = !root.friday;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 5px;
+
+                    DayToggle {
+                        label: "Sat";
+                        selected: root.saturday;
+                        toggled => {
+                            root.saturday = !root.saturday;
+                        }
+                    }
+
+                    DayToggle {
+                        label: "Sun";
+                        selected: root.sunday;
+                        toggled => {
+                            root.sunday = !root.sunday;
+                        }
+                    }
+                }
+            }
+    }
+
+    HorizontalLayout {
+        y: root.height - 80px;
+        width: root.width;
+        height: 80px;
+        padding: 20px;
+        spacing: 15px;
+
+        StyledButton {
+            text: "Cancel";
+            height: 50px;
+            horizontal-stretch: 1;
+            clicked => {
+                root.cancel();
+            }
+        }
+
+        StyledButton {
+            text: "Save";
+            height: 50px;
+            horizontal-stretch: 1;
+            clicked => {
+                root.save({
+                    start-hour: root.start-hour,
+                    start-minute: root.start-minute,
+                    duration-value: root.duration-value,
+                    duration-unit: root.duration-unit,
+                    sunday: root.sunday,
+                    monday: root.monday,
+                    tuesday: root.tuesday,
+                    wednesday: root.wednesday,
+                    thursday: root.thursday,
+                    friday: root.friday,
+                    saturday: root.saturday,
+                });
+            }
+        }
+    }
+
+    pure function format-two-digits(value: int) -> string {
+        return value < 10 ? "0" + value : value;
+    }
+
+    pure function max-duration-value(unit: string) -> int {
+        if (unit == "hours") { return 23; }
+        return 59;
+    }
+}

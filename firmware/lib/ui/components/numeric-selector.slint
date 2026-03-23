@@ -1,0 +1,72 @@
+// Reusable numeric selector component with preset values and custom input
+// Displays a list of default numeric options as buttons and provides custom input via numeric keypad
+
+import { Button } from "std-widgets.slint";
+import { NumericKeypad } from "@ui/components/numeric_keypad.slint";
+
+export component NumericSelector {
+    in-out property <bool> keypad_visible: false;
+    in property <string> display-text: "Select Value";
+    in property <[float]> default-options: [];
+    in property <int> decimal-places: 2;
+    in property <float> min-value: 0.0;
+    in property <float> max-value: 100.0;
+
+    width: 100%;
+    height: 100%;
+
+    callback selection_confirmed(float);
+
+    public function reset() {
+        keypad_visible = false;
+        self.visible = false;
+    }
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding: 20px;
+        spacing: 20px;
+
+        // Title/prompt text
+        Text { 
+            text: root.display-text;
+            font-size: 18px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        // Default option buttons
+        for value[index] in root.default-options: Button {
+            text: value.to-fixed(root.decimal-places);
+            clicked => {
+                keypad_visible = false;
+                selection_confirmed(value);
+            }
+        }
+
+        // Custom input button
+        Button {
+            text: "Custom Value";
+            clicked => { keypad_visible = true; }
+        }
+    }
+    
+    NumericKeypad {
+        visible: root.keypad_visible;
+        prompt: root.display-text;
+        min_value: root.min-value;
+        max_value: root.max-value;
+        width: 100%;
+        height: 100%;
+        
+        submit(value) => {
+            keypad_visible = false;
+            selection_confirmed(value);
+        }
+        
+        cancel => {
+            keypad_visible = false; 
+        }
+    }
+}

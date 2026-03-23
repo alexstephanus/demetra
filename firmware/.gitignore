@@ -1,0 +1,9 @@
+/.vscode
+/.embuild
+/.claude/
+/.local/
+/target
+/vendor
+/Cargo.lock
+/simulation/target
+/simulation/target-sim

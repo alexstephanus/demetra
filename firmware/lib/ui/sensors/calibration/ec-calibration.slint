@@ -1,0 +1,113 @@
+import { Button } from "std-widgets.slint";
+import { NumericSelector } from "@ui/components/numeric-selector.slint";
+import { WorkflowUiState, EcCalibrationWorkflowStep } from "@ui/state/workflow-state.slint";
+import { AppColors } from "@ui/colors.slint";
+
+component MeasuringEcIndicator inherits Rectangle {
+    width: 100%;
+    height: 100%;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+        spacing: 10px;
+        alignment: center;
+
+        Text {
+            text: "Submerge EC and temperature probes in\n" + WorkflowUiState.ec-solution.to-fixed(0) + " µS/cm calibration solution.";
+            color: black;
+            font-size: 12pt;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Button {
+            text: "Calibrate";
+            height: 50px;
+            clicked => {
+                WorkflowUiState.trigger-ec-calibration(WorkflowUiState.ec-solution);
+            }
+        }
+
+        Button {
+            text: "Cancel";
+            height: 45px;
+            clicked => {
+                WorkflowUiState.reset-ec-calibration();
+            }
+        }
+    }
+}
+
+export component EcCalibrationWorkflowUi inherits Rectangle {
+    visible: WorkflowUiState.ec-calibration-state != EcCalibrationWorkflowStep.Inactive;
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+    callback cancel();
+    callback complete-measurement();
+    callback progress-state();
+
+    progress-state() => {
+        WorkflowUiState.advance-ec-calibration();
+    }
+
+    cancel() => {
+        WorkflowUiState.reset-ec-calibration();
+    }
+
+    complete-measurement() => {
+        WorkflowUiState.reset-ec-calibration();
+    }
+
+    if WorkflowUiState.ec-calibration-state == EcCalibrationWorkflowStep.GettingSolutionValue: NumericSelector {
+        display-text: "EC Calibration Solution (µS/cm)";
+        default-options: [1443.0, 2770.0];
+        decimal-places: 0;
+        min-value: 1.0;
+        max-value: 100000.0;
+
+        selection_confirmed(value) => {
+            WorkflowUiState.ec-solution = value;
+            WorkflowUiState.advance-ec-calibration();
+        }
+    }
+
+    if WorkflowUiState.ec-calibration-state == EcCalibrationWorkflowStep.MeasuringSolution: MeasuringEcIndicator { }
+
+    if WorkflowUiState.ec-calibration-state == EcCalibrationWorkflowStep.Complete: Rectangle {
+        background: AppColors.background-light;
+
+        VerticalLayout {
+            padding: 40px;
+            spacing: 30px;
+            alignment: center;
+
+            Text {
+                text: "✓ EC Calibration Complete";
+                font-size: 24px;
+                font-weight: 700;
+                color: AppColors.status-ok;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "EC sensor calibrated with " + WorkflowUiState.ec-solution.to-fixed(0) + " µS/cm solution.\nCell constant K = " + WorkflowUiState.ec-cell-constant.to-fixed(2) + " cm⁻¹";
+                font-size: 16px;
+                color: AppColors.text-secondary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            Button {
+                text: "Done";
+                height: 50px;
+                clicked => {
+                    root.complete-measurement();
+                }
+            }
+        }
+    }
+}

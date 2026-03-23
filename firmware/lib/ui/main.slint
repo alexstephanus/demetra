@@ -1,0 +1,100 @@
+import { SystemStatusDisplay, RectangleStatusDisplay } from "@ui/status-display.slint";
+import { SensorType, Status, DosingPump } from "@ui/state/enums.slint";
+import { PumpDisplay } from "@ui/pump-display.slint";
+import { OutletsDisplay } from "@ui/outlet-display.slint";
+import { AppTab, NavigationBar, TabInitState } from "@ui/state/navigation.slint";
+import {
+    OutletUiState,
+    OutletMode,
+    TreatmentSolutionType,
+    UiTreatmentSolution,
+} from "@ui/state/state.slint";
+import { ConfigurationDisplay } from "@ui/config-display.slint";
+import { LogDisplay } from "@ui/log-display.slint";
+
+import {
+    AppUiState,
+    ConductivityDisplayUnit,
+    LogUiState,
+    PumpUiState,
+    SensorUiState,
+    TemperatureDisplayUnit,
+} from "@ui/state/state.slint";
+
+export {
+    AppUiState,
+    DosingPump,
+    LogUiState,
+    PumpUiState,
+    SensorUiState,
+}
+
+import { ClockBar } from "@ui/clock-display.slint";
+import { PhCalibrationSolutionType, PhSolutionSelector } from "@ui/sensors/ph.slint";
+
+import { NumericKeypad } from "@ui/components/numeric_keypad.slint";
+import { WorkflowUiState } from "@ui/state/workflow-state.slint";
+
+export { WorkflowUiState }
+export { TabInitState }
+export {
+    OutletUiState,
+    OutletMode,
+    UiTreatmentSolution,
+    TreatmentSolutionType,
+}
+export {
+    ConductivityDisplayUnit,
+    SensorType,
+    Status,
+    TemperatureDisplayUnit,
+}
+
+export component MainWindow inherits Window {
+    min-width: 320px;
+    max-width: 320px;
+
+    min-height: 480px;
+    max-height: 480px;
+
+    VerticalLayout {
+        clock-bar := ClockBar {
+            current-time: AppUiState.current-time;
+        }
+
+        Rectangle {
+            if TabInitState.status: RectangleStatusDisplay {
+                visible: AppUiState.current-tab == AppTab.Status;
+                width: 100%; height: 100%;
+                current-ph: SensorUiState.current-ph-value;
+                current-ec: SensorUiState.current-ec-value;
+                current-orp: SensorUiState.current-orp-value;
+                current-temp: SensorUiState.current-temperature-celsius;
+            }
+
+            if TabInitState.pumps: PumpDisplay {
+                visible: AppUiState.current-tab == AppTab.Pumps;
+                width: 100%; height: 100%;
+            }
+
+            if TabInitState.outlets: OutletsDisplay {
+                visible: AppUiState.current-tab == AppTab.Outlets;
+                width: 100%; height: 100%;
+            }
+
+            if TabInitState.config: ConfigurationDisplay {
+                visible: AppUiState.current-tab == AppTab.Configuration;
+                width: 100%; height: 100%;
+                tank-size-liters: AppUiState.tank-size;
+                temperature-unit: AppUiState.temperature-display-unit;
+                conductivity-unit: AppUiState.conductivity-display-unit;
+                current-time-display: "Not Set";
+            }
+
+            if TabInitState.logs: LogDisplay {
+                visible: AppUiState.current-tab == AppTab.Logs;
+                width: 100%; height: 100%;
+            }
+        }
+    }
+}

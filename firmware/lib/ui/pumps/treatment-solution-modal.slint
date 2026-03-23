@@ -1,0 +1,256 @@
+import { Button } from "std-widgets.slint";
+import { TreatmentSolutionType, UiTreatmentSolution, AppUiState } from "@ui/state/state.slint";
+import { NumericKeypad } from "@ui/components/numeric_keypad.slint";
+
+enum ModalState {
+    MainMenu,
+    PhSelection,
+    OrpSelection,
+    NutrientConfig,
+    RemoveConfirm,
+}
+
+export component TreatmentSolutionModal inherits Rectangle {
+    in-out property <bool> modal-visible: false;
+    in property <int> pump-number: 1;
+    in property <string> pump-name: "";
+    in property <UiTreatmentSolution> current-solution;
+
+    in-out property <ModalState> current-state: ModalState.MainMenu;
+    in-out property <TreatmentSolutionType> selected-type: TreatmentSolutionType.unconfigured;
+    in-out property <bool> keypad-visible: false;
+
+    callback close();
+    callback solution-configured(UiTreatmentSolution);
+
+    visible: root.modal-visible;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #00000080;
+
+        TouchArea {
+            clicked => { root.close(); }
+        }
+    }
+
+    if root.keypad-visible: NumericKeypad {
+        width: 100%;
+        height: 100%;
+        display-value <=> AppUiState.keypad-display-value;
+        prompt: {
+            if (root.selected-type == TreatmentSolutionType.phUp) { "Enter pH Up solution strength (pH):" }
+            else if (root.selected-type == TreatmentSolutionType.phDown) { "Enter pH Down solution strength (pH):" }
+            else if (root.selected-type == TreatmentSolutionType.orpTreatment) { "Dose increment (mL/L):" }
+            else if (root.selected-type == TreatmentSolutionType.nutrient) { "Enter nutrient solution strength (EC):" }
+            else { "Enter solution strength:" }
+        }
+        min-value: 0.0;
+        max-value: {
+            if (root.selected-type == TreatmentSolutionType.phUp) { 14.0 }
+            else if (root.selected-type == TreatmentSolutionType.phDown) { 14.0 }
+            else if (root.selected-type == TreatmentSolutionType.orpTreatment) { 10.0 }
+            else if (root.selected-type == TreatmentSolutionType.nutrient) { 10.0 }
+            else { 100.0 }
+        }
+
+        submit(strength) => {
+            root.solution-configured({
+                solution-type: root.selected-type,
+                solution-strength: strength
+            });
+            root.keypad-visible = false;
+            root.current-state = ModalState.MainMenu;
+        }
+        cancel() => {
+            root.keypad-visible = false;
+            root.current-state = ModalState.MainMenu;
+        }
+    }
+
+    if !root.keypad-visible: Rectangle {
+        width: min(220px, root.width - 60px);
+        height: min(360px, root.height - 40px);
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+
+        background: white;
+        border-radius: 15px;
+        border-width: 2px;
+        border-color: #333333;
+        drop-shadow-blur: 10px;
+        drop-shadow-color: #00000040;
+
+        TouchArea {
+            clicked => { /* no-op */ }
+        }
+
+        VerticalLayout {
+            padding: 25px;
+            spacing: 18px;
+
+            Text {
+                text: root.pump-name != "" ? root.pump-name : ("Pump " + root.pump-number);
+                font-size: 20px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                color: #333333;
+            }
+
+            if root.current-state == ModalState.MainMenu: VerticalLayout {
+                spacing: 18px;
+
+                Button {
+                    text: "pH Up/Down";
+                    vertical-stretch: 1;
+                    clicked => { root.current-state = ModalState.PhSelection; }
+                }
+
+                Button {
+                    text: "ORP Treatment";
+                    vertical-stretch: 1;
+                    clicked => { root.current-state = ModalState.OrpSelection; }
+                }
+
+                Button {
+                    text: "Nutrient";
+                    vertical-stretch: 1;
+                    clicked => { root.current-state = ModalState.NutrientConfig; }
+                }
+
+                Button {
+                    text: "Remove Configuration";
+                    vertical-stretch: 1;
+                    clicked => { root.current-state = ModalState.RemoveConfirm; }
+                }
+            }
+
+            if root.current-state == ModalState.PhSelection: VerticalLayout {
+                spacing: 18px;
+
+                Text {
+                    text: "Select pH solution type:";
+                    font-size: 14px;
+                    horizontal-alignment: center;
+                    color: #666666;
+                }
+
+                Button {
+                    text: "pH Up Solution";
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.selected-type = TreatmentSolutionType.phUp;
+                        AppUiState.keypad-set-display-value("7.0");
+                        root.keypad-visible = true;
+                    }
+                }
+
+                Button {
+                    text: "pH Down Solution";
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.selected-type = TreatmentSolutionType.phDown;
+                        AppUiState.keypad-set-display-value("7.0");
+                        root.keypad-visible = true;
+                    }
+                }
+
+                Button {
+                    text: "Back";
+                    vertical-stretch: 1;
+                    clicked => { root.current-state = ModalState.MainMenu; }
+                }
+            }
+
+            if root.current-state == ModalState.OrpSelection: VerticalLayout {
+                spacing: 18px;
+
+                Text {
+                    text: "ORP Treatment:";
+                    font-size: 14px;
+                    horizontal-alignment: center;
+                    color: #666666;
+                }
+
+                Button {
+                    text: "HOCL Solution";
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.selected-type = TreatmentSolutionType.orpTreatment;
+                        AppUiState.keypad-set-display-value("0.1");
+                        root.keypad-visible = true;
+                    }
+                }
+
+                Button {
+                    text: "Back";
+                    vertical-stretch: 1;
+                    clicked => { root.current-state = ModalState.MainMenu; }
+                }
+            }
+
+            if root.current-state == ModalState.NutrientConfig: VerticalLayout {
+                spacing: 18px;
+
+                Text {
+                    text: "Nutrient solution EC:";
+                    font-size: 14px;
+                    horizontal-alignment: center;
+                    color: #666666;
+                }
+
+                Button {
+                    text: "Enter Value";
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.selected-type = TreatmentSolutionType.nutrient;
+                        AppUiState.keypad-set-display-value("1.8");
+                        root.keypad-visible = true;
+                    }
+                }
+
+                Button {
+                    text: "Back";
+                    vertical-stretch: 1;
+                    clicked => { root.current-state = ModalState.MainMenu; }
+                }
+            }
+
+            if root.current-state == ModalState.RemoveConfirm: VerticalLayout {
+                spacing: 18px;
+
+                Text {
+                    text: "Remove pump configuration?";
+                    font-size: 14px;
+                    horizontal-alignment: center;
+                    color: #666666;
+                    wrap: word-wrap;
+                }
+
+                Button {
+                    text: "Remove";
+                    vertical-stretch: 1;
+                    clicked => {
+                        root.solution-configured({
+                            solution-type: TreatmentSolutionType.unconfigured,
+                            solution-strength: 0.0
+                        });
+                    }
+                }
+
+                Button {
+                    text: "Cancel";
+                    vertical-stretch: 1;
+                    clicked => { root.current-state = ModalState.MainMenu; }
+                }
+            }
+
+            if root.current-state == ModalState.MainMenu: Button {
+                text: "Cancel";
+                vertical-stretch: 1;
+                clicked => { root.close(); }
+            }
+        }
+    }
+}

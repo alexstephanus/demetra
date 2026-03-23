@@ -1,0 +1,31 @@
+site_name: Documentation
+
+theme:
+  name: material
+  color_mode: auto
+  user_color_mode_toggle: true
+
+plugins:
+  - glightbox:
+      caption_position: bottom
+      alt_caption: true
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - Home: index.md
+  - Build Guide:
+    - What You Need: build_guide/what_you_need.md
+    - PCB: build_guide/pcb.md
+    - Enclosure: build_guide/enclosure.md
+    - Assembly: build_guide/assembly.md
+    - Setup: build_guide/setup.md
+  - Firmware:
+    - Overview: firmware.md
+
+extra_css:                                                                                                                                                                                  
+  - stylesheets/extra.css

@@ -1,0 +1,38 @@
+FROM rust:slim-bookworm AS builder
+
+RUN rustup default nightly && rustup component add rust-src
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libsdl2-dev \
+    libfontconfig1-dev \
+    libxkbcommon-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY . .
+
+RUN cargo build -p simulation \
+    --release \
+    --target=x86_64-unknown-linux-gnu \
+    -Z build-std=std \
+    && strip target/x86_64-unknown-linux-gnu/release/simulation
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsdl2-2.0-0 \
+    libfontconfig1 \
+    libxkbcommon0 \
+    xvfb \
+    x11vnc \
+    novnc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /build/target/x86_64-unknown-linux-gnu/release/simulation /usr/local/bin/demetra-sim
+COPY sim-entrypoint.sh /usr/local/bin/sim-entrypoint.sh
+RUN chmod +x /usr/local/bin/sim-entrypoint.sh
+
+EXPOSE 6080
+
+ENTRYPOINT ["sim-entrypoint.sh"]

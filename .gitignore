@@ -1,0 +1,21 @@
+# KiCad auto-generated
+hardware/motherboard/*-backups/
+hardware/motherboard/_autosave-*
+hardware/motherboard/#auto_saved_files#
+hardware/motherboard/fp-info-cache
+hardware/motherboard/*.kicad_sch-bak
+hardware/motherboard/*~
+hardware/motherboard/*.lck
+
+# KiCad generated exports
+hardware/motherboard/pcb.step
+hardware/motherboard/gerbers/
+
+# FreeCAD exploded working directory (regenerated from .FCStd)
+hardware/enclosure/enclosure/
+
+# Enclosure STLs (generate from .FCStd for releases)
+hardware/enclosure/*.stl
+
+# Claude Code
+CLAUDE.md

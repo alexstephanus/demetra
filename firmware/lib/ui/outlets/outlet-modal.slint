@@ -1,0 +1,287 @@
+import { Button } from "std-widgets.slint";
+import { OutletUiState, AppUiState, OutletMode, UiScheduledRunWindow } from "@ui/state/state.slint";
+import { AlphabeticalKeypad } from "@ui/components/alphabetical_keypad.slint";
+import { SelectorModal } from "@ui/components/selector_modal.slint";
+import { NumericSelector } from "@ui/components/numeric-selector.slint";
+import { AppColors } from "@ui/colors.slint";
+import { Outlet, OutletHelpers, Status } from "@ui/state/enums.slint";
+import { ScheduleDisplay } from "schedule-display.slint";
+import { ScheduleDeleteConfirmation } from "schedule-delete-confirmation.slint";
+import { RunWindowEdit } from "run-window-edit.slint";
+
+export component OutletModal inherits Rectangle {
+    in-out property <bool> modal-visible: false;
+    in property <Outlet> outlet: Outlet.One;
+    in property <OutletUiState> outlet-state;
+
+    in-out property <bool> keyboard-visible: false;
+    in-out property <bool> type-selector-visible: false;
+    in-out property <bool> schedule-display-visible: false;
+    in-out property <bool> schedule-delete-visible: false;
+    in-out property <bool> schedule-edit-visible: false;
+    in-out property <bool> duration-edit-visible: false;
+
+    property <int> selected-window-index: -1;
+
+    callback close();
+    callback rename-outlet(Outlet, string);
+    callback change-outlet-mode(Outlet, OutletMode);
+    callback toggle-enabled(Outlet);
+    callback run-manually(Outlet);
+    callback schedule-add-window(Outlet, UiScheduledRunWindow);
+    callback schedule-update-window(Outlet, int, UiScheduledRunWindow);
+    callback schedule-delete-window(Outlet, int);
+    callback update-fill-time(Outlet, float);
+    callback update-stir-duration(Outlet, float);
+
+    visible: root.modal-visible;
+    width: 100%;
+    height: 100%;
+
+    property <string> outlet-mode-string: {
+        if (root.outlet-state.outlet-mode == OutletMode.fertigationPump) { "Fertigation Pump" }
+        else if (root.outlet-state.outlet-mode == OutletMode.solenoid) { "Solenoid Valve" }
+        else if (root.outlet-state.outlet-mode == OutletMode.stirPump) { "Stir Pump" }
+        else if (root.outlet-state.outlet-mode == OutletMode.generalPurpose) { "General Purpose" }
+        else { "Unconfigured" }
+    };
+
+    if !root.keyboard-visible && !root.type-selector-visible: SelectorModal {
+        modal-visible: root.modal-visible && !root.keyboard-visible && !root.type-selector-visible;
+        title: root.outlet-state.name != ""
+            ? root.outlet-state.name + "\n" + root.outlet-mode-string
+            : "Outlet " + OutletHelpers.get-outlet-display-number(root.outlet) + "\n" + root.outlet-mode-string;
+
+        close => {
+            root.close();
+        }
+
+        Button {
+            text: "Run Manually";
+            vertical-stretch: 1;
+            clicked => {
+                root.run-manually(root.outlet);
+            }
+        }
+
+        Button {
+            text: root.outlet-state.enable ? "Disable" : "Enable";
+            vertical-stretch: 1;
+            clicked => {
+                root.toggle-enabled(root.outlet);
+            }
+        }
+
+        Button {
+            text: "Change Outlet Type";
+            vertical-stretch: 1;
+            clicked => {
+                root.type-selector-visible = true;
+            }
+        }
+
+        Button {
+            text: {
+                if (root.outlet-state.outlet-mode == OutletMode.solenoid) { "Change Fill Time" }
+                else if (root.outlet-state.outlet-mode == OutletMode.stirPump) { "Change Stir Duration" }
+                else if (root.outlet-state.outlet-mode == OutletMode.fertigationPump) { "Change Schedule" }
+                else if (root.outlet-state.outlet-mode == OutletMode.generalPurpose) { "Change Schedule" }
+                else { "Configure Settings" }
+            }
+            vertical-stretch: 1;
+            enabled: root.outlet-state.outlet-mode != OutletMode.unconfigured;
+            clicked => {
+                if (root.outlet-state.outlet-mode == OutletMode.fertigationPump
+                    || root.outlet-state.outlet-mode == OutletMode.generalPurpose) {
+                    root.schedule-display-visible = true;
+                } else if (root.outlet-state.outlet-mode == OutletMode.solenoid
+                    || root.outlet-state.outlet-mode == OutletMode.stirPump) {
+                    root.duration-edit-visible = true;
+                }
+            }
+        }
+
+        Button {
+            text: "Rename Outlet";
+            vertical-stretch: 1;
+            clicked => {
+                AppUiState.keyboard-set-display-value(root.outlet-state.name);
+                root.keyboard-visible = true;
+            }
+        }
+    }
+
+    if root.keyboard-visible: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: AppColors.background-light;
+
+        AlphabeticalKeypad {
+            width: 100%;
+            height: 100%;
+            prompt: "Enter Outlet Name";
+            max-length: 30;
+
+            cancel => {
+                root.keyboard-visible = false;
+            }
+            
+            submit(value) => {
+                root.rename-outlet(root.outlet, value);
+                root.keyboard-visible = false;
+            }
+        }
+    }
+
+    if root.type-selector-visible: SelectorModal {
+        modal-visible: root.type-selector-visible;
+        title: "Select Outlet Type";
+
+        close => {
+            root.type-selector-visible = false;
+        }
+
+        Button {
+            text: "Solenoid Valve";
+            vertical-stretch: 1;
+            clicked => {
+                root.change-outlet-mode(root.outlet, OutletMode.solenoid);
+                root.type-selector-visible = false;
+            }
+        }
+
+        Button {
+            text: "Stir Pump";
+            vertical-stretch: 1;
+            clicked => {
+                root.change-outlet-mode(root.outlet, OutletMode.stirPump);
+                root.type-selector-visible = false;
+            }
+        }
+
+        Button {
+            text: "General Purpose";
+            vertical-stretch: 1;
+            clicked => {
+                root.change-outlet-mode(root.outlet, OutletMode.generalPurpose);
+                root.type-selector-visible = false;
+            }
+        }
+
+        Button {
+            text: "Fertigation Pump";
+            vertical-stretch: 1;
+            clicked => {
+                root.change-outlet-mode(root.outlet, OutletMode.fertigationPump);
+                root.type-selector-visible = false;
+            }
+        }
+
+        Button {
+            text: "Unconfigured";
+            vertical-stretch: 1;
+            clicked => {
+                root.change-outlet-mode(root.outlet, OutletMode.unconfigured);
+                root.type-selector-visible = false;
+            }
+        }
+    }
+
+    if root.schedule-display-visible: ScheduleDisplay {
+        outlet-name: root.outlet-state.name != "" ? root.outlet-state.name : "Outlet " + OutletHelpers.get-outlet-display-number(root.outlet);
+        run-windows: root.outlet-state.schedule-windows;
+
+        close => {
+            root.schedule-display-visible = false;
+        }
+
+        edit-window(index) => {
+            root.selected-window-index = index;
+            root.schedule-edit-visible = true;
+        }
+
+        delete-window(index) => {
+            root.selected-window-index = index;
+            root.schedule-delete-visible = true;
+        }
+
+        add-run-window => {
+            root.selected-window-index = -1;
+            root.schedule-edit-visible = true;
+        }
+    }
+
+    if root.schedule-delete-visible: ScheduleDeleteConfirmation {
+        show-modal: root.schedule-delete-visible;
+
+        cancel => {
+            root.schedule-delete-visible = false;
+        }
+
+        confirm-delete => {
+            root.schedule-delete-visible = false;
+            root.schedule-delete-window(root.outlet, root.selected-window-index);
+        }
+    }
+
+    if root.schedule-edit-visible: RunWindowEdit {
+        is-new-window: root.selected-window-index == -1;
+
+        init => {
+            if root.selected-window-index >= 0 {
+                self.populate(root.outlet-state.schedule-windows[root.selected-window-index]);
+            }
+        }
+
+        cancel => {
+            root.schedule-edit-visible = false;
+        }
+
+        save(window) => {
+            root.schedule-edit-visible = false;
+
+            if root.selected-window-index == -1 {
+                root.schedule-add-window(root.outlet, window);
+            } else {
+                root.schedule-update-window(root.outlet, root.selected-window-index, window);
+            }
+        }
+    }
+
+    if root.duration-edit-visible: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: AppColors.background-light;
+
+        VerticalLayout {
+            padding: 10px;
+            spacing: 5px;
+
+            Button {
+                text: "← Back";
+                clicked => { root.duration-edit-visible = false; }
+            }
+
+            NumericSelector {
+                display-text: root.outlet-state.outlet-mode == OutletMode.solenoid
+                    ? "Fill Time (seconds)"
+                    : "Stir Duration (seconds)";
+                default-options: root.outlet-state.outlet-mode == OutletMode.solenoid
+                    ? [30.0, 60.0, 120.0, 300.0]
+                    : [15.0, 30.0, 60.0, 120.0];
+                decimal-places: 0;
+                min-value: 1.0;
+                max-value: 3600.0;
+
+                selection_confirmed(value) => {
+                    if (root.outlet-state.outlet-mode == OutletMode.solenoid) {
+                        root.update-fill-time(root.outlet, value);
+                    } else {
+                        root.update-stir-duration(root.outlet, value);
+                    }
+                    root.duration-edit-visible = false;
+                }
+            }
+        }
+    }
+}

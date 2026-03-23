@@ -1,0 +1,97 @@
+import { Button } from "std-widgets.slint";
+import { NumericSelector } from "@ui/components/numeric-selector.slint";
+import { WorkflowUiState, OrpCalibrationWorkflowStep } from "@ui/state/workflow-state.slint";
+import { AppColors } from "@ui/colors.slint";
+
+component MeasuringOrpIndicator inherits Rectangle {
+    width: 100%;
+    height: 100%;
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+        spacing: 10px;
+        alignment: center;
+
+        Text {
+            text: "Submerge ORP probe in\n" + WorkflowUiState.orp-solution.to-fixed(0) + " mV calibration solution.";
+            color: black;
+            font-size: 12pt;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Button {
+            text: "Calibrate";
+            height: 50px;
+            clicked => {
+                WorkflowUiState.trigger-orp-calibration(WorkflowUiState.orp-solution);
+            }
+        }
+
+        Button {
+            text: "Cancel";
+            height: 45px;
+            clicked => {
+                WorkflowUiState.reset-orp-calibration();
+            }
+        }
+    }
+}
+
+export component OrpCalibrationWorkflowUi inherits Rectangle {
+    visible: WorkflowUiState.orp-calibration-state != OrpCalibrationWorkflowStep.Inactive;
+    width: 100%;
+    height: 100%;
+    background: AppColors.background-light;
+
+    if WorkflowUiState.orp-calibration-state == OrpCalibrationWorkflowStep.GettingSolutionValue: NumericSelector {
+        display-text: "ORP Calibration Solution (mV)";
+        default-options: [222.0, 256.0, 400.0];
+        decimal-places: 0;
+        min-value: -2000.0;
+        max-value: 2000.0;
+
+        selection-confirmed(value) => {
+            WorkflowUiState.orp-solution = value;
+            WorkflowUiState.advance-orp-calibration();
+        }
+    }
+
+    if WorkflowUiState.orp-calibration-state == OrpCalibrationWorkflowStep.MeasuringSolution: MeasuringOrpIndicator { }
+
+    if WorkflowUiState.orp-calibration-state == OrpCalibrationWorkflowStep.Complete: Rectangle {
+        background: AppColors.background-light;
+
+        VerticalLayout {
+            padding: 40px;
+            spacing: 30px;
+            alignment: center;
+
+            Text {
+                text: "✓ ORP Calibration Complete";
+                font-size: 24px;
+                font-weight: 700;
+                color: AppColors.status-ok;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: "ORP sensor calibrated with " + WorkflowUiState.orp-solution.to-fixed(0) + " mV solution.";
+                font-size: 16px;
+                color: AppColors.text-secondary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            Button {
+                text: "Done";
+                height: 50px;
+                clicked => {
+                    WorkflowUiState.reset-orp-calibration();
+                }
+            }
+        }
+    }
+}

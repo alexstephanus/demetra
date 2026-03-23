@@ -1,0 +1,103 @@
+import { AppColors } from "@ui/colors.slint";
+
+export enum AppTab {
+    Status,
+    Pumps,
+    Outlets,
+    Configuration,
+    Logs
+}
+
+component TabButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> active: false;
+    in property <bool> enabled: true;
+
+    callback clicked();
+
+    height: 35px;
+    border-radius: 4px;
+    background: AppColors.background-light;
+    border-width: root.active ? 0px : 1px;
+    border-color: AppColors.background-border;
+
+    TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+
+        Text {
+            text: root.text;
+            color: root.active ? AppColors.nav-active-text : (root.enabled ? AppColors.text-primary : AppColors.text-secondary);
+            font-size: 12px;
+            font-weight: root.active ? 700 : 400;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export global TabInitState {
+    in-out property <bool> status: false;
+    in-out property <bool> pumps: false;
+    in-out property <bool> outlets: false;
+    in-out property <bool> config: false;
+    in-out property <bool> logs: false;
+}
+
+export component NavigationBar inherits HorizontalLayout {
+    in-out property <AppTab> current-tab: AppTab.Status;
+    in property <bool> can-switch: true;
+
+    height: 35px;
+
+    TabButton {
+        text: "Status";
+        active: root.current-tab == AppTab.Status;
+        enabled: root.can-switch;
+        clicked => {
+            if (root.can-switch) {
+                root.current-tab = AppTab.Status;
+            }
+        }
+    }
+    TabButton {
+        text: "Pumps";
+        active: root.current-tab == AppTab.Pumps;
+        enabled: root.can-switch;
+        clicked => {
+            if (root.can-switch) {
+                root.current-tab = AppTab.Pumps;
+            }
+        }
+    }
+    TabButton {
+        text: "Outlets";
+        active: root.current-tab == AppTab.Outlets;
+        enabled: root.can-switch;
+        clicked => {
+            if (root.can-switch) {
+                root.current-tab = AppTab.Outlets;
+            }
+        }
+    }
+    TabButton {
+        text: "Config";
+        active: root.current-tab == AppTab.Configuration;
+        enabled: root.can-switch;
+        clicked => {
+            if (root.can-switch) {
+                root.current-tab = AppTab.Configuration;
+            }
+        }
+    }
+    TabButton {
+        text: "Logs";
+        active: root.current-tab == AppTab.Logs;
+        enabled: root.can-switch;
+        clicked => {
+            if (root.can-switch) {
+                root.current-tab = AppTab.Logs;
+            }
+        }
+    }
+}

@@ -1,0 +1,797 @@
+
+// Draws an arc of the provided thickness and radius.
+// Draws clockwise, with a vertically-downward angle
+// being at 0;
+component GaugeArc inherits Path {
+    // Configurable
+    in property <float> thickness;
+    in property <float> outer-radius;
+    in property <angle> start-angle;
+    in property <angle> end-angle;
+    in property <float> dimension;
+
+    // Computed
+    property <float> inner-radius: root.outer-radius - root.thickness;
+    property <float> center: root.outer-radius;
+
+    viewbox-width: outer-radius * 2;
+    viewbox-height: outer-radius * (1 + sin(45deg));
+
+    MoveTo {
+        x: root.center - (root.outer-radius * sin(root.start-angle));
+        y: root.center + (root.outer-radius * cos(root.start-angle));
+    }
+    ArcTo {
+        x: root.center - (root.outer-radius * sin(root.end-angle));
+        y: root.center + (root.outer-radius * cos(root.end-angle));
+        radius-x: root.outer-radius;
+        radius-y: root.outer-radius;
+        large-arc: Math.mod(root.end-angle / 1deg - root.start-angle / 1deg, 360) > 180;
+        sweep: true;
+    }
+    LineTo {
+        x: root.center - (root.inner-radius * sin(root.end-angle));
+        y: root.center + (root.inner-radius * cos(root.end-angle));
+    }
+    ArcTo {
+        x: root.center - (root.inner-radius * sin(root.start-angle));
+        y: root.center + (root.inner-radius * cos(root.start-angle));
+        radius-x: root.inner-radius;
+        radius-y: root.inner-radius;
+        large-arc: Math.mod(root.end-angle / 1deg - root.start-angle / 1deg, 360) > 180;
+        sweep: false;
+    }
+    LineTo {
+        x: root.center - (root.outer-radius * sin(root.start-angle));
+        y: root.center + (root.outer-radius * cos(root.start-angle));
+    }
+    Close {}
+}
+
+component GaugeBar inherits Path {
+    in property <float> thickness;
+    in property <float> outer-radius;
+    in property <angle> angle;
+    in property <float> dimension;
+
+    // Computed
+    property <float> inner-radius: root.outer-radius - root.thickness;
+    property <float> center: root.outer-radius;
+
+    fill: #01000071;
+    viewbox-width: root.outer-radius * 2;
+    viewbox-height: root.outer-radius * (1 + sin(45deg));
+
+    MoveTo {
+        x: root.center;
+        y: root.center;
+    }
+    LineTo {
+        x: root.center - root.inner-radius * sin(root.angle - 10deg) / 3;
+        y: root.center + root.inner-radius * cos(root.angle - 10deg) / 3;
+    }
+    LineTo {
+        x: root.center - root.inner-radius * sin(root.angle) * 0.95;
+        y: root.center + root.inner-radius * cos(root.angle) * 0.95;
+    }
+    LineTo {
+        x: root.center - root.inner-radius * sin(root.angle + 10deg) / 3;
+        y: root.center + root.inner-radius * cos(root.angle + 10deg) / 3;
+    }
+    Close {}
+}
+
+export component Gauge inherits Rectangle {
+    in property <float> thickness: 5;
+    in property <float> outer-radius: 50;
+    in property <float> lowest-display-value;
+    in property <float> lowest-allowable-value;
+    in property <float> current-value;
+    in property <float> highest-allowable-value;
+    in property <float> highest-display-value;
+
+    width: outer-radius * 2px;
+
+    property <float> range: root.highest-display-value - root.lowest-display-value;
+    property <angle> allowable-start: 45deg + (
+        (root.lowest-allowable-value - root.lowest-display-value)
+        / root.range
+    ) * 270deg;
+    property <angle> allowable-end: 45deg + (
+        (root.highest-allowable-value - root.lowest-display-value)
+        / root.range
+    ) * 270deg;
+    property <angle> current-angle: 45deg + (
+        (root.current-value - root.lowest-display-value)
+        / root.range
+    ) * 270deg;
+
+    GaugeArc {
+        thickness: root.thickness;
+        outer-radius: root.outer-radius;
+        start-angle: 45deg;
+        end-angle: root.allowable-start;
+        dimension: 100;
+        fill: #01000071;
+    }
+
+    GaugeArc {
+        thickness: root.thickness;
+        outer-radius: root.outer-radius;
+        start-angle: root.allowable-start;
+        end-angle: root.allowable-end;
+        dimension: 100;
+        fill: #2e9619c3;
+    }
+
+    GaugeArc {
+        thickness: root.thickness;
+        outer-radius: root.outer-radius;
+        start-angle: root.allowable-end;
+        end-angle: 315deg;
+        dimension: 100;
+        fill: #01000071;
+    }
+
+    GaugeBar {
+        thickness: root.thickness;
+        outer-radius: root.outer-radius;
+        angle: current-angle;
+    }
+}
+
+
+export component GaugeDisplay inherits HorizontalLayout {
+    padding-left: 10px;
+    padding-top: 10px;
+    padding-right: 10px;
+    padding-bottom: 10px;
+    alignment: space-between;
+
+    phGauge := VerticalLayout {
+        Text {
+            text: "pH";
+            horizontal-alignment: center;
+            vertical-alignment: top;
+            font-size: 20pt;
+        }
+
+        Gauge {
+            lowest-display-value: 4;
+            lowest-allowable-value: 5;
+            current-value: 6;
+            highest-allowable-value: 7;
+            highest-display-value: 9;
+            outer-radius: 45;
+            thickness: 5;
+        }
+
+        Text {
+            text: "6";
+            horizontal-alignment: center;
+            vertical-alignment: bottom;
+            font-size: 20pt;
+        }
+    
+    }
+
+    ecGauge := VerticalLayout {
+        Text {
+            text: "EC";
+            horizontal-alignment: center;
+            vertical-alignment: top;
+            font-size: 20pt;
+        }
+
+        Gauge {
+            lowest-display-value: 10;
+            lowest-allowable-value: 50;
+            current-value: 60;
+            highest-allowable-value: 65;
+            highest-display-value: 100;
+            outer-radius: 45;
+            thickness: 5;
+        }
+
+        Text {
+            text: "60";
+            horizontal-alignment: center;
+            vertical-alignment: top;
+            font-size: 20pt;
+        }
+    }
+
+    orpGauge := VerticalLayout {
+        Text {
+            text: "ORP";
+            horizontal-alignment: center;
+            vertical-alignment: top;
+            font-size: 20pt;
+        }
+
+        Gauge {
+            lowest-display-value: 100;
+            lowest-allowable-value: 150;
+            current-value: 175;
+            highest-allowable-value: 250;
+            highest-display-value: 300;
+            outer-radius: 45;
+            thickness: 5;
+        }
+
+        Text {
+            text: "175";
+            horizontal-alignment: center;
+            vertical-alignment: top;
+            font-size: 20pt;
+        }
+    }
+}
+
+// Import required components
+import { Button, ScrollView } from "std-widgets.slint";
+import { StatusBar } from "@ui/components/status-bar.slint";
+import { SensorActionModal } from "@ui/components/sensor-action-modal.slint";
+import { NumericKeypad } from "@ui/components/numeric_keypad.slint";
+import { SensorMeasurementModal, MeasurementStep } from "@ui/components/sensor-measurement-modal.slint";
+import { RangeConfigModal } from "@ui/components/range-config-modal.slint";
+import { PhCalibrationWorkflowUi } from "@ui/sensors/ph.slint";
+import { EcCalibrationWorkflowUi } from "@ui/sensors/calibration/ec-calibration.slint";
+import { OrpCalibrationWorkflowUi } from "@ui/sensors/calibration/orp-calibration.slint";
+import { WorkflowUiState, PhCalibrationWorkflowStep, EcCalibrationWorkflowStep, OrpCalibrationWorkflowStep } from "@ui/state/workflow-state.slint";
+import { AppColors } from "@ui/colors.slint";
+import { SensorUiState, AppUiState, ConductivityDisplayUnit, TemperatureDisplayUnit } from "@ui/state/state.slint";
+import { SensorType } from "@ui/state/enums.slint";
+import { NavigationBar } from "@ui/state/navigation.slint";
+
+export component RectangleStatusDisplay inherits Rectangle {
+    in property <float> current-ph;
+    in property <float> current-ec;
+    in property <float> current-orp;
+    in property <float> current-temp;
+
+    property <string> ec-display-string: {
+        if AppUiState.conductivity-display-unit == ConductivityDisplayUnit.us-per-cm {
+            Math.round(current-ec * 10) / 10 + " µS/cm"
+        } else if AppUiState.conductivity-display-unit == ConductivityDisplayUnit.ppm500 {
+            Math.round(current-ec * 0.5 * 10) / 10 + " ppm"
+        } else {
+            Math.round(current-ec * 0.7 * 10) / 10 + " ppm"
+        }
+    };
+
+    property <string> temp-display-string: {
+        if AppUiState.temperature-display-unit == TemperatureDisplayUnit.celsius {
+            Math.round(current-temp * 10) / 10 + "°C"
+        } else {
+            Math.round((current-temp * 9 / 5 + 32) * 10) / 10 + "°F"
+        }
+    };
+
+    // Modal visibility states for each sensor
+    in-out property <bool> ph-modal-visible: false;
+    in-out property <bool> ec-modal-visible: false;
+    in-out property <bool> orp-modal-visible: false;
+    in-out property <bool> temp-modal-visible: false;
+
+    // Measurement modal states
+    in-out property <bool> ph-measurement-visible: false;
+    in-out property <bool> ec-measurement-visible: false;
+    in-out property <bool> orp-measurement-visible: false;
+    in-out property <bool> temp-measurement-visible: false;
+
+    // Thermistor beta modal state
+    in-out property <bool> temp-beta-modal-visible: false;
+
+    // Range configuration modal state
+    in-out property <bool> range-config-modal-visible: false;
+    in-out property <SensorType> range-sensor-type: SensorType.ph;
+    in-out property <string> range-sensor-name: "pH";
+
+    VerticalLayout {
+        spacing: 0px;
+
+        NavigationBar {
+            current-tab <=> AppUiState.current-tab;
+            can-switch: true;
+        }
+
+        VerticalLayout {
+            padding: 12px;
+            spacing: 8px;
+        
+        // pH Status Bar
+        Rectangle {
+            StatusBar {
+                label: "pH";
+                most-recent-measurement: root.current-ph.to-fixed(1);
+                lowest-allowable-value: SensorUiState.ph-min-acceptable;
+                current-value: root.current-ph;
+                highest-allowable-value: SensorUiState.ph-max-acceptable;
+                sensor-enabled: SensorUiState.ph-enabled;
+            }
+
+            TouchArea {
+                clicked => { root.ph-modal-visible = true; }
+            }
+        }
+            
+        // EC Status Bar
+        Rectangle {
+            StatusBar {
+                label: "Conductivity";
+                most-recent-measurement: root.ec-display-string;
+                lowest-allowable-value: SensorUiState.ec-min-acceptable;
+                current-value: root.current-ec;
+                highest-allowable-value: SensorUiState.ec-max-acceptable;
+                sensor-enabled: SensorUiState.ec-enabled;
+            }
+
+            TouchArea {
+                clicked => { root.ec-modal-visible = true; }
+            }
+        }
+            
+        // ORP Status Bar
+        Rectangle {
+            StatusBar {
+                label: "ORP";
+                most-recent-measurement: root.current-orp.to-fixed(0) + " mV";
+                lowest-allowable-value: SensorUiState.orp-min-acceptable;
+                current-value: root.current-orp;
+                highest-allowable-value: SensorUiState.orp-max-acceptable;
+                sensor-enabled: SensorUiState.orp-enabled;
+            }
+
+            TouchArea {
+                clicked => { root.orp-modal-visible = true; }
+            }
+        }
+            
+        // Temperature Status Bar
+        Rectangle {
+            StatusBar {
+                label: "Temperature";
+                most-recent-measurement: root.temp-display-string;
+                lowest-allowable-value: SensorUiState.temperature-min-acceptable;
+                current-value: root.current-temp;
+                highest-allowable-value: SensorUiState.temperature-max-acceptable;
+                sensor-enabled: SensorUiState.temperature-enabled;
+            }
+
+            TouchArea {
+                clicked => { root.temp-modal-visible = true; }
+            }
+        }
+            
+            // System health indicators
+            Rectangle {
+                height: 45px;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: AppColors.background-border;
+                background: AppColors.background-light;
+                
+                GridLayout {
+                    padding: 10px;
+                    spacing: 0px;
+                    
+                    Row {
+                        VerticalLayout {
+                            col: 0;
+                            alignment: center;
+                            spacing: 5px;
+                            
+                            Text {
+                                text: "Pumps";
+                                font-size: 10px;
+                                font-weight: 600;
+                                // color: AppColors.text-primary;
+                                color: black;
+                                horizontal-alignment: center;
+                            }
+                            
+                            Text {
+                                text: "✓";
+                                font-size: 16px;
+                                color: AppColors.status-ok;
+                                horizontal-alignment: center;
+                            }
+                        }
+                        
+                        Rectangle {
+                            col: 1;
+                            width: 1px;
+                            background: AppColors.background-border;
+                        }
+                        
+                        VerticalLayout {
+                            col: 2;
+                            alignment: center;
+                            spacing: 5px;
+                            
+                            Text {
+                                text: "Outlets";
+                                font-size: 10px;
+                                font-weight: 600;
+                                color: AppColors.text-primary;
+                                horizontal-alignment: center;
+                            }
+                            
+                            Text {
+                                text: "✓";
+                                font-size: 16px;
+                                color: AppColors.status-ok;
+                                horizontal-alignment: center;
+                            }
+                        }
+                        
+                        Rectangle {
+                            col: 3;
+                            width: 1px;
+                            background: AppColors.background-border;
+                        }
+                        
+                        VerticalLayout {
+                            col: 4;
+                            alignment: center;
+                            spacing: 5px;
+                            
+                            Text {
+                                text: "Network";
+                                font-size: 10px;
+                                font-weight: 600;
+                                color: AppColors.text-primary;
+                                horizontal-alignment: center;
+                            }
+                            
+                            Text {
+                                text: "✗";
+                                font-size: 16px;
+                                color: AppColors.status-error;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Modal components for each sensor
+    if root.ph-modal-visible: SensorActionModal {
+        modal-visible: root.ph-modal-visible;
+        sensor-name: "pH";
+        sensor-enabled: SensorUiState.ph-enabled;
+        
+        close() => { root.ph-modal-visible = false; }
+        start-calibration() => {
+            WorkflowUiState.start-ph-calibration();
+            root.ph-modal-visible = false;
+        }
+        measure-now() => {
+            root.ph-modal-visible = false;
+            root.ph-measurement-visible = true;
+        }
+        configure-range() => {
+            root.range-sensor-type = SensorType.ph;
+            root.range-sensor-name = "pH";
+            root.ph-modal-visible = false;
+            root.range-config-modal-visible = true;
+        }
+        toggle-enabled() => { SensorUiState.ph-enabled ? SensorUiState.disable-sensor(SensorType.ph) : SensorUiState.enable-sensor(SensorType.ph); }
+        view-history() => { SensorUiState.view-history(SensorType.ph); root.ph-modal-visible = false; }
+    }
+
+    if root.ec-modal-visible: SensorActionModal {
+        modal-visible: root.ec-modal-visible;
+        sensor-name: "EC";
+        sensor-enabled: SensorUiState.ec-enabled;
+        
+        close() => { root.ec-modal-visible = false; }
+        start-calibration() => {
+            WorkflowUiState.start-ec-calibration();
+            root.ec-modal-visible = false;
+        }
+        measure-now() => {
+            root.ec-modal-visible = false;
+            root.ec-measurement-visible = true;
+        }
+        configure-range() => {
+            root.range-sensor-type = SensorType.conductivity;
+            root.range-sensor-name = "EC";
+            root.ec-modal-visible = false;
+            root.range-config-modal-visible = true;
+        }
+        toggle-enabled() => { SensorUiState.ec-enabled ? SensorUiState.disable-sensor(SensorType.conductivity) : SensorUiState.enable-sensor(SensorType.conductivity); }
+        view-history() => { SensorUiState.view-history(SensorType.conductivity); root.ec-modal-visible = false; }
+    }
+
+    if root.orp-modal-visible: SensorActionModal {
+        modal-visible: root.orp-modal-visible;
+        sensor-name: "ORP";
+        sensor-enabled: SensorUiState.orp-enabled;
+        
+        close() => { root.orp-modal-visible = false; }
+        start-calibration() => {
+            WorkflowUiState.start-orp-calibration();
+            root.orp-modal-visible = false;
+        }
+        measure-now() => {
+            root.orp-modal-visible = false;
+            root.orp-measurement-visible = true;
+        }
+        configure-range() => {
+            root.range-sensor-type = SensorType.orp;
+            root.range-sensor-name = "ORP";
+            root.orp-modal-visible = false;
+            root.range-config-modal-visible = true;
+        }
+        toggle-enabled() => { SensorUiState.orp-enabled ? SensorUiState.disable-sensor(SensorType.orp) : SensorUiState.enable-sensor(SensorType.orp); }
+        view-history() => { SensorUiState.view-history(SensorType.orp); root.orp-modal-visible = false; }
+    }
+
+    if root.temp-modal-visible: SensorActionModal {
+        modal-visible: root.temp-modal-visible;
+        sensor-name: "Temperature";
+        sensor-enabled: SensorUiState.temperature-enabled;
+        show-calibration: false;
+        show-set-beta: true;
+
+        close() => { root.temp-modal-visible = false; }
+        measure-now() => {
+            root.temp-modal-visible = false;
+            root.temp-measurement-visible = true;
+        }
+        configure-range() => {
+            root.range-sensor-type = SensorType.temperature;
+            root.range-sensor-name = "Temperature";
+            root.temp-modal-visible = false;
+            root.range-config-modal-visible = true;
+        }
+        set-beta() => {
+            root.temp-modal-visible = false;
+            root.temp-beta-modal-visible = true;
+        }
+        toggle-enabled() => { SensorUiState.temperature-enabled ? SensorUiState.disable-sensor(SensorType.temperature) : SensorUiState.enable-sensor(SensorType.temperature); }
+        view-history() => { SensorUiState.view-history(SensorType.temperature); root.temp-modal-visible = false; }
+    }
+
+    if SensorUiState.chart-visible: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: white;
+        Image {
+            source: SensorUiState.chart-image;
+            width: 100%;
+            height: 100%;
+            image-fit: contain;
+        }
+        TouchArea {
+            clicked => { SensorUiState.chart-visible = false; }
+        }
+    }
+
+    // pH Calibration UI (takes full area when active)
+    if WorkflowUiState.ph-calibration-state != PhCalibrationWorkflowStep.Inactive: PhCalibrationWorkflowUi {
+        visible: WorkflowUiState.ph-calibration-state != PhCalibrationWorkflowStep.Inactive;
+        width: 100%;
+        height: 100%;
+        
+        cancel() => {
+            WorkflowUiState.reset-ph-calibration();
+        }
+        
+        complete-measurement() => {
+            WorkflowUiState.reset-ph-calibration();
+        }
+    }
+    
+    // EC Calibration UI (takes full area when active)
+    if WorkflowUiState.ec-calibration-state != EcCalibrationWorkflowStep.Inactive: EcCalibrationWorkflowUi {
+        width: 100%;
+        height: 100%;
+        
+        cancel() => {
+            WorkflowUiState.reset-ec-calibration();
+        }
+        
+        complete-measurement() => {
+            WorkflowUiState.reset-ec-calibration();
+        }
+    }
+    
+    // ORP Calibration UI (takes full area when active)
+    if WorkflowUiState.orp-calibration-state != OrpCalibrationWorkflowStep.Inactive: OrpCalibrationWorkflowUi {
+        width: 100%;
+        height: 100%;
+    }
+    
+    function get-sensor-min-value(sensor-type: SensorType) -> float {
+        if (sensor-type == SensorType.ph) { SensorUiState.ph-min-acceptable }
+        else if (sensor-type == SensorType.conductivity) { SensorUiState.ec-min-acceptable }
+        else if (sensor-type == SensorType.orp) { SensorUiState.orp-min-acceptable }
+        else { SensorUiState.temperature-min-acceptable }
+    }
+
+    function get-sensor-max-value(sensor-type: SensorType) -> float {
+        if (sensor-type == SensorType.ph) { SensorUiState.ph-max-acceptable }
+        else if (sensor-type == SensorType.conductivity) { SensorUiState.ec-max-acceptable }
+        else if (sensor-type == SensorType.orp) { SensorUiState.orp-max-acceptable }
+        else { SensorUiState.temperature-max-acceptable }
+    }
+
+    function get-sensor-validation-min(sensor-type: SensorType) -> float {
+        if (sensor-type == SensorType.ph) { 0.0 }
+        else if (sensor-type == SensorType.conductivity) { 0.0 }
+        else if (sensor-type == SensorType.orp) { 0.0 }
+        else { 0.0 }
+    }
+
+    function get-sensor-validation-max(sensor-type: SensorType) -> float {
+        if (sensor-type == SensorType.ph) { 14.0 }
+        else if (sensor-type == SensorType.conductivity) { 100000.0 }
+        else if (sensor-type == SensorType.orp) { 1000.0 }
+        else { 100.0 }
+    }
+
+    // pH Measurement Modal
+    ph-measurement-modal := SensorMeasurementModal {
+        modal-visible: root.ph-measurement-visible;
+        sensor-name: "pH";
+        latest-reading: SensorUiState.latest-ph-manual-reading;
+
+        close() => {
+            root.ph-measurement-visible = false;
+            ph-measurement-modal.current-step = MeasurementStep.instructions;
+            SensorUiState.latest-ph-manual-reading = "";
+        }
+
+        start-measurement() => {
+            SensorUiState.measure-sensor-calibrated-value(SensorType.ph);
+        }
+    }
+
+    // EC Measurement Modal
+    ec-measurement-modal := SensorMeasurementModal {
+        modal-visible: root.ec-measurement-visible;
+        sensor-name: "EC";
+        latest-reading: SensorUiState.latest-ec-manual-reading;
+
+        close() => {
+            root.ec-measurement-visible = false;
+            ec-measurement-modal.current-step = MeasurementStep.instructions;
+            SensorUiState.latest-ec-manual-reading = "";
+        }
+
+        start-measurement() => {
+            SensorUiState.measure-sensor-calibrated-value(SensorType.conductivity);
+        }
+    }
+
+    // ORP Measurement Modal
+    orp-measurement-modal := SensorMeasurementModal {
+        modal-visible: root.orp-measurement-visible;
+        sensor-name: "ORP";
+        latest-reading: SensorUiState.latest-orp-manual-reading;
+
+        close() => {
+            root.orp-measurement-visible = false;
+            orp-measurement-modal.current-step = MeasurementStep.instructions;
+            SensorUiState.latest-orp-manual-reading = "";
+        }
+
+        start-measurement() => {
+            SensorUiState.measure-sensor-calibrated-value(SensorType.orp);
+        }
+    }
+
+    // Temperature Measurement Modal
+    temp-measurement-modal := SensorMeasurementModal {
+        modal-visible: root.temp-measurement-visible;
+        sensor-name: "Temperature";
+        latest-reading: SensorUiState.latest-temperature-manual-reading;
+
+        close() => {
+            root.temp-measurement-visible = false;
+            temp-measurement-modal.current-step = MeasurementStep.instructions;
+            SensorUiState.latest-temperature-manual-reading = "";
+        }
+
+        start-measurement() => {
+            SensorUiState.measure-sensor-calibrated-value(SensorType.temperature);
+        }
+    }
+
+    // Range configuration modal
+    if root.range-config-modal-visible: RangeConfigModal {
+        modal-visible: root.range-config-modal-visible;
+        sensor-name: root.range-sensor-name;
+        sensor-type: root.range-sensor-type;
+
+        close() => {
+            root.range-config-modal-visible = false;
+        }
+    }
+
+    if root.temp-beta-modal-visible: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: white;
+
+        NumericKeypad {
+            prompt: "Thermistor Beta Value";
+            display-value: SensorUiState.temperature-beta-value;
+            min-value: 1.0;
+            max-value: 99999.0;
+            width: 100%;
+            height: 100%;
+
+            submit(value) => {
+                SensorUiState.set-thermistor-beta(value);
+                root.temp-beta-modal-visible = false;
+            }
+
+            cancel => {
+                root.temp-beta-modal-visible = false;
+            }
+        }
+    }
+
+    if SensorUiState.temp-beta-confirm-visible: Rectangle {
+        width: 100%;
+        height: 100%;
+        background: white;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 30px;
+            padding: 30px;
+
+            Text {
+                text: "Beta value set to";
+                font-size: 18px;
+                horizontal-alignment: center;
+                color: #333333;
+            }
+
+            Text {
+                text: SensorUiState.temperature-beta-value;
+                font-size: 28px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                color: #333333;
+            }
+
+            Button {
+                text: "OK";
+                height: 45px;
+                clicked => {
+                    SensorUiState.temp-beta-confirm-visible = false;
+                }
+            }
+        }
+    }
+}
+
+export component SystemStatusDisplay inherits Rectangle {
+    HorizontalLayout {
+        VerticalLayout {
+            GaugeDisplay {}
+            HorizontalLayout {
+                Text {
+                    text: "Pumps: \u{2705}";
+                    horizontal-alignment: center;
+                    vertical-alignment: top;
+                    font-size: 20pt;
+                }
+                Text {
+                    text: "Sensors: \u{2705}";
+                    horizontal-alignment: center;
+                    vertical-alignment: top;
+                    font-size: 20pt;
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,288 @@
+// Global workflow state management for calibration and maintenance procedures
+
+// pH Calibration Workflow States
+export enum PhCalibrationWorkflowStep {
+    Inactive,
+    GettingLowPhValue,
+    MeasuringLowPh,
+    GettingMidPhValue,
+    MeasuringMidPh,
+    GettingHighPhValue,
+    MeasuringHighPh,
+    Complete,
+    Cancelled,
+}
+
+// ORP Calibration Workflow States
+export enum OrpCalibrationWorkflowStep {
+    Inactive,
+    GettingSolutionValue,
+    MeasuringSolution,
+    Complete,
+}
+
+// EC Calibration Workflow States
+export enum EcCalibrationWorkflowStep {
+    Inactive,
+    GettingSolutionValue,
+    MeasuringSolution,
+    Complete,
+}
+
+// Pump Calibration Workflow States
+export enum PumpCalibrationWorkflowStep {
+    Inactive,
+    ShowingInfo,
+    EmptyingTreatmentSolution,
+    FillingWithWater,
+    Dispensing3Seconds,
+    Recording3SecondVolume,
+    Dispensing10Seconds,
+    Recording10SecondVolume,
+    Dispensing30Seconds,
+    Recording30SecondVolume,
+    ShowingCalibrationResults,
+    EmptyingWater,
+    RefillingTreatmentSolution,
+    Complete,
+}
+
+// Global workflow state manager
+export global WorkflowUiState {
+    // Current workflow states
+    in-out property <PhCalibrationWorkflowStep> ph-calibration-state: PhCalibrationWorkflowStep.Inactive;
+    in-out property <OrpCalibrationWorkflowStep> orp-calibration-state: OrpCalibrationWorkflowStep.Inactive;
+    in-out property <EcCalibrationWorkflowStep> ec-calibration-state: EcCalibrationWorkflowStep.Inactive;
+    in-out property <PumpCalibrationWorkflowStep> pump-calibration-state: PumpCalibrationWorkflowStep.Inactive;
+    
+    // Active pump number for pump calibration (1-6)
+    in-out property <int> calibrating-pump-number: 0;
+    
+    // Calibration solution values
+    in-out property <float> ph-low-solution: 0.0;
+    in-out property <float> ph-mid-solution: 0.0;
+    in-out property <float> ph-high-solution: 0.0;
+    in-out property <float> orp-solution: 0.0;
+    in-out property <float> ec-solution: 0.0;
+    in-out property <float> ec-cell-constant: 0.0;
+
+    // pH calibration measured voltages and temperatures (accumulated across steps)
+    in-out property <float> ph-low-mv: 0.0;
+    in-out property <float> ph-mid-mv: 0.0;
+    in-out property <float> ph-high-mv: 0.0;
+    in-out property <float> ph-low-temp-c: 25.0;
+    in-out property <float> ph-mid-temp-c: 25.0;
+    in-out property <float> ph-high-temp-c: 25.0;
+
+    // pH calibration results
+    in-out property <float> ph-calibration-slope: 100.0;
+    
+    // Pump calibration volumes (mL dispensed)
+    in-out property <float> pump-3s-volume: 0.0;
+    in-out property <float> pump-10s-volume: 0.0;
+    in-out property <float> pump-30s-volume: 0.0;
+    
+    // pH Calibration Management
+    callback start-ph-calibration();
+    callback advance-ph-calibration();
+    callback confirm-ph-measurement(mv: float, temp-c: float);
+    callback reset-ph-calibration();
+    callback cancel-ph-calibration();
+
+    start-ph-calibration() => {
+        self.ph-calibration-state = PhCalibrationWorkflowStep.GettingLowPhValue;
+        self.ph-low-solution = 0.0;
+        self.ph-mid-solution = 0.0;
+        self.ph-high-solution = 0.0;
+        self.ph-low-mv = 0.0;
+        self.ph-mid-mv = 0.0;
+        self.ph-high-mv = 0.0;
+        self.ph-low-temp-c = 25.0;
+        self.ph-mid-temp-c = 25.0;
+        self.ph-high-temp-c = 25.0;
+    }
+
+    advance-ph-calibration() => {
+        if (self.ph-calibration-state == PhCalibrationWorkflowStep.GettingLowPhValue) {
+            self.ph-calibration-state = PhCalibrationWorkflowStep.MeasuringLowPh;
+        } else if (self.ph-calibration-state == PhCalibrationWorkflowStep.MeasuringLowPh) {
+            self.ph-calibration-state = PhCalibrationWorkflowStep.GettingMidPhValue;
+        } else if (self.ph-calibration-state == PhCalibrationWorkflowStep.GettingMidPhValue) {
+            self.ph-calibration-state = PhCalibrationWorkflowStep.MeasuringMidPh;
+        } else if (self.ph-calibration-state == PhCalibrationWorkflowStep.MeasuringMidPh) {
+            self.ph-calibration-state = PhCalibrationWorkflowStep.GettingHighPhValue;
+        } else if (self.ph-calibration-state == PhCalibrationWorkflowStep.GettingHighPhValue) {
+            self.ph-calibration-state = PhCalibrationWorkflowStep.MeasuringHighPh;
+        } else if (self.ph-calibration-state == PhCalibrationWorkflowStep.MeasuringHighPh) {
+            self.ph-calibration-state = PhCalibrationWorkflowStep.Complete;
+            self.save-ph-calibration(
+                self.ph-low-solution, self.ph-low-mv, self.ph-low-temp-c,
+                self.ph-mid-solution, self.ph-mid-mv, self.ph-mid-temp-c,
+                self.ph-high-solution, self.ph-high-mv, self.ph-high-temp-c,
+            );
+        }
+    }
+
+    confirm-ph-measurement(mv, temp-c) => {
+        if (self.ph-calibration-state == PhCalibrationWorkflowStep.MeasuringLowPh) {
+            self.ph-low-mv = mv;
+            self.ph-low-temp-c = temp-c;
+        } else if (self.ph-calibration-state == PhCalibrationWorkflowStep.MeasuringMidPh) {
+            self.ph-mid-mv = mv;
+            self.ph-mid-temp-c = temp-c;
+        } else if (self.ph-calibration-state == PhCalibrationWorkflowStep.MeasuringHighPh) {
+            self.ph-high-mv = mv;
+            self.ph-high-temp-c = temp-c;
+        }
+        self.advance-ph-calibration();
+    }
+
+    reset-ph-calibration() => {
+        self.ph-calibration-state = PhCalibrationWorkflowStep.Inactive;
+        self.ph-low-solution = 0.0;
+        self.ph-mid-solution = 0.0;
+        self.ph-high-solution = 0.0;
+        self.ph-low-mv = 0.0;
+        self.ph-mid-mv = 0.0;
+        self.ph-high-mv = 0.0;
+        self.ph-low-temp-c = 25.0;
+        self.ph-mid-temp-c = 25.0;
+        self.ph-high-temp-c = 25.0;
+    }
+
+    cancel-ph-calibration() => {
+        self.ph-low-solution = 0.0;
+        self.ph-mid-solution = 0.0;
+        self.ph-high-solution = 0.0;
+        self.ph-low-mv = 0.0;
+        self.ph-mid-mv = 0.0;
+        self.ph-high-mv = 0.0;
+        self.ph-low-temp-c = 25.0;
+        self.ph-mid-temp-c = 25.0;
+        self.ph-high-temp-c = 25.0;
+        self.ph-calibration-state = PhCalibrationWorkflowStep.Cancelled;
+    }
+
+    // ORP Calibration Management
+    in-out property <int> orp-calibration-timestamp-secs: 0;
+
+    callback start-orp-calibration();
+    callback advance-orp-calibration();
+    callback trigger-orp-calibration(solution-mv: float);
+    callback reset-orp-calibration();
+
+    start-orp-calibration() => {
+        self.orp-calibration-state = OrpCalibrationWorkflowStep.GettingSolutionValue;
+        self.orp-solution = 0.0;
+        self.orp-calibration-timestamp-secs = 0;
+    }
+
+    advance-orp-calibration() => {
+        if (self.orp-calibration-state == OrpCalibrationWorkflowStep.GettingSolutionValue) {
+            self.orp-calibration-state = OrpCalibrationWorkflowStep.MeasuringSolution;
+        }
+    }
+
+    reset-orp-calibration() => {
+        self.orp-calibration-state = OrpCalibrationWorkflowStep.Inactive;
+        self.orp-solution = 0.0;
+    }
+    
+    // EC Calibration Management
+    callback start-ec-calibration();
+    callback advance-ec-calibration();
+    callback trigger-ec-calibration(solution-us-per-cm: float);
+    callback reset-ec-calibration();
+
+    start-ec-calibration() => {
+        self.ec-calibration-state = EcCalibrationWorkflowStep.GettingSolutionValue;
+        self.ec-solution = 0.0;
+        self.ec-cell-constant = 0.0;
+    }
+
+    advance-ec-calibration() => {
+        if (self.ec-calibration-state == EcCalibrationWorkflowStep.GettingSolutionValue) {
+            self.ec-calibration-state = EcCalibrationWorkflowStep.MeasuringSolution;
+        }
+    }
+
+    reset-ec-calibration() => {
+        self.ec-calibration-state = EcCalibrationWorkflowStep.Inactive;
+        self.ec-solution = 0.0;
+    }
+    
+    // Pump Calibration Management
+    callback start-pump-calibration(int /* pump_number */);
+    callback advance-pump-calibration();
+    callback reset-pump-calibration();
+    
+    start-pump-calibration(pump-number) => {
+        self.calibrating-pump-number = pump-number;
+        self.pump-calibration-state = PumpCalibrationWorkflowStep.ShowingInfo;
+        self.pump-3s-volume = 0.0;
+        self.pump-10s-volume = 0.0;
+        self.pump-30s-volume = 0.0;
+    }
+    
+    advance-pump-calibration() => {
+        if (self.pump-calibration-state == PumpCalibrationWorkflowStep.ShowingInfo) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.EmptyingTreatmentSolution;
+        } else if (self.pump-calibration-state == PumpCalibrationWorkflowStep.EmptyingTreatmentSolution) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.FillingWithWater;
+        } else if (self.pump-calibration-state == PumpCalibrationWorkflowStep.FillingWithWater) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.Dispensing3Seconds;
+        } else if (self.pump-calibration-state == PumpCalibrationWorkflowStep.Dispensing3Seconds) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.Recording3SecondVolume;
+        } else if (self.pump-calibration-state == PumpCalibrationWorkflowStep.Recording3SecondVolume) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.Dispensing10Seconds;
+        } else if (self.pump-calibration-state == PumpCalibrationWorkflowStep.Dispensing10Seconds) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.Recording10SecondVolume;
+        } else if (self.pump-calibration-state == PumpCalibrationWorkflowStep.Recording10SecondVolume) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.Dispensing30Seconds;
+        } else if (self.pump-calibration-state == PumpCalibrationWorkflowStep.Dispensing30Seconds) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.Recording30SecondVolume;
+        } else if (self.pump-calibration-state == PumpCalibrationWorkflowStep.Recording30SecondVolume) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.EmptyingWater;
+        } else if (self.pump-calibration-state == PumpCalibrationWorkflowStep.EmptyingWater) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.RefillingTreatmentSolution;
+        } else if (self.pump-calibration-state == PumpCalibrationWorkflowStep.RefillingTreatmentSolution) {
+            self.pump-calibration-state = PumpCalibrationWorkflowStep.Complete;
+        }
+    }
+    
+    reset-pump-calibration() => {
+        self.pump-calibration-state = PumpCalibrationWorkflowStep.Inactive;
+        self.calibrating-pump-number = 0;
+        self.pump-3s-volume = 0.0;
+        self.pump-10s-volume = 0.0;
+        self.pump-30s-volume = 0.0;
+    }
+
+    callback run-dosing-pump(pump-number: int, duration-seconds: int);
+    callback run-dosing-pump-volumetric(pump-number: int, volume-ml: float);
+    callback start-dosing-pump(pump-number: int);
+    callback stop-dosing-pump(pump-number: int);
+    callback save-dosing-pump-calibration(pump-number: int, vol-3s: float, vol-10s: float, vol-30s: float);
+
+    callback save-ph-calibration(
+        low-ph: float, low-mv: float, low-temp-c: float,
+        mid-ph: float, mid-mv: float, mid-temp-c: float,
+        high-ph: float, high-mv: float, high-temp-c: float
+    );
+    
+    // Utility functions to check if any workflow is active
+    pure function any-workflow-active() -> bool {
+        self.ph-calibration-state != PhCalibrationWorkflowStep.Inactive ||
+        self.orp-calibration-state != OrpCalibrationWorkflowStep.Inactive ||
+        self.ec-calibration-state != EcCalibrationWorkflowStep.Inactive ||
+        self.pump-calibration-state != PumpCalibrationWorkflowStep.Inactive
+    }
+    
+    pure function get-active-workflow() -> string {
+        if (self.ph-calibration-state != PhCalibrationWorkflowStep.Inactive) { "pH Calibration" }
+        else if (self.orp-calibration-state != OrpCalibrationWorkflowStep.Inactive) { "ORP Calibration" }
+        else if (self.ec-calibration-state != EcCalibrationWorkflowStep.Inactive) { "EC Calibration" }
+        else if (self.pump-calibration-state != PumpCalibrationWorkflowStep.Inactive) { "Pump " + self.calibrating-pump-number + " Calibration" }
+        else { "None" }
+    }
+}

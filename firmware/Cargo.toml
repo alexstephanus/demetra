@@ -1,0 +1,56 @@
+[package]
+name = "demetra"
+version = "0.1.0"
+authors = ["Alex Stephanus"]
+edition = "2021"
+rust-version = "1.88"
+
+[[bin]]
+name = "chip"
+test = true
+path = "chip/src/main.rs"
+
+[workspace]
+members = [
+  "chip",
+  "lib",
+  "simulation",
+]
+resolver = "2"
+
+[profile.release]
+codegen-units    = 1
+debug            = 2
+debug-assertions = false
+incremental      = false
+opt-level        = "z"
+lto = 'thin'
+overflow-checks  = false
+
+# This package is required to build at opt-level 3
+# due to strict hardware timing requirements
+[profile.release.package.esp-storage]
+codegen-units = 1
+debug = 2
+debug-assertions = false
+incremental = false
+opt-level = 3
+overflow-checks = false
+
+[profile.dev]
+debug = true    # Symbols are nice and they don't increase the size on Flash
+opt-level = "z"
+incremental = true
+
+[build-dependencies]
+slint-build = "1.15.1"
+
+# These patches aren't intended to be long-lived, but there's a bug in the 0.2.0 release of esp-rtos
+# that can cause deadlocks when running embassy on both cores.
+# This has since been fixed, but the fix isn't yet published on crates.io, so we're patching it for now
+[patch.crates-io]
+esp-hal = { git = "https://github.com/esp-rs/esp-hal.git", package = "esp-hal", rev = "da3cf88b" }
+esp-rtos = { git = "https://github.com/esp-rs/esp-hal.git", package = "esp-rtos", rev = "da3cf88b"}
+esp-rom-sys = { git = "https://github.com/esp-rs/esp-hal.git", package = "esp-rom-sys", rev = "da3cf88b" }
+esp-riscv-rt = { git = "https://github.com/esp-rs/esp-hal.git", package = "esp-riscv-rt", rev = "da3cf88b" }
+xtensa-lx-rt = { git = "https://github.com/esp-rs/esp-hal.git", package = "xtensa-lx-rt", rev = "da3cf88b" }
