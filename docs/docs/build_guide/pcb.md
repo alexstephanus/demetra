@@ -1,10 +1,11 @@
 # PCB Assembly
 
-This guide is for building the PCB from scratch. If you purchased a pre-assembled board, skip to [Enclosure Assembly](enclosure.md).
+This section covers populating and reflowing the motherboard, as well as attaching through-hole components. It doesn't get into the nuts and bolts of SMD soldering.  If you haven't done this before, it is totally possible to learn! You should watch a few tutorials at a minimum and, additionally, consider using any of the litany of surface-mount practice boards to familiarize yourself with the process before diving into assembling this motherboard.
 
 ## Before You Start
 
 **Required Tools:**
+
 - [ ] Surface-mount soldering equipment (see [What You Need](what_you_need.md))
 - [ ] Soldering iron, flux, and solder wick
 - [ ] 99% isopropyl alcohol for cleanup
@@ -12,6 +13,7 @@ This guide is for building the PCB from scratch. If you purchased a pre-assemble
 - [ ] Magnification device (Magnifier visor, stereo microscope, or magnifying lamp) to accurately place components
 
 **Required Parts:**
+
 - [ ] Bare PCB
 - [ ] Solder paste stencil
 - [ ] Electronic Components
@@ -20,14 +22,16 @@ This guide is for building the PCB from scratch. If you purchased a pre-assemble
 ## SMD Component Assembly
 
 ### **Note:**
-You shouldn't leave un-reflowed solder paste on the PCB.  So, if you're applying solder paste with a stencil, make sure you have enough time to populate all components in one go.  This takes me about 3 hours by hand, and I know where everything goes.  Just be advised, it'll take a while -- before you start, you should make sure you have enough time to get it finished. You can deal with THT components later, in multiple batches, or one a day for a month if you so desire.
+You shouldn't leave un-reflowed solder paste on the PCB.  So, if you're applying solder paste with a stencil, make sure you have enough time to populate all components in one go.  This takes me about 3 hours by hand, and I know where everything goes.  So, be advised, it'll take a while. You can deal with THT components later, in multiple batches, or one a day for a month if you so desire.
 
 ### 1. Apply Solder Paste
+
 - [ ] Align stencil over PCB
 - [ ] Apply solder paste with squeegee
 - [ ] Inspect paste application quality
 
 ### 2. Place Components
+
 - [ ] Populate all surface-mount components.
 
 **Important: Verify Polarized Component Orientation**
@@ -49,6 +53,7 @@ Also, you should ensure that there aren't any bare SMD pads.  If there are, go b
 Using magnification, carefully inspect all components, paying special attention to fine-pitch components:
 
 **Components requiring extra attention:**
+
 - [ ] U103: Current-sensing ADC
 - [ ] U202: ESP32
 - [ ] J52: Micro-USB connector
@@ -56,6 +61,7 @@ Using magnification, carefully inspect all components, paying special attention 
 - [ ] U8, U9, U10: Analog switches for temperature & EC sensors
 
 **Check for:**
+
 - [ ] Solder bridges between pins
 - [ ] Cold solder joints
 - [ ] Tombstoned components
@@ -75,6 +81,7 @@ Once you're satisfied with your reflow quality, it's time to install through-hol
 ### 1. Install Through-Hole Components on Top of the PCB
 
 Components to install:
+
 - [ ] J55: CAN bus terminal
 - [ ] J58: RS485 terminal
 - [ ] J101-106: JST XH Connectors
@@ -112,23 +119,23 @@ Before proceeding to powering it up and flashing the firmware, perform some basi
 ### Power Supply Tests
 - [ ] Using a multimeter, check for shorts between power and ground rails (should read open circuit)
   - [ ] Main power nets:
-    - DC Input: the rectangular pad of the DC power jack (farthest from the edge of the board) is V_DC
-    - 3.3V: This via is located on J201, just below the ESP32
-    - 9V: This pin is located on J62
-    - Main GND
+    - [ ] DC Input: the rectangular pad of the DC power jack (farthest from the edge of the board) is V_DC
+    - [ ] 3.3V: This via is located on J201, just below the ESP32
+    - [ ] 9V: This pin is located on J62
+    - [ ] Main GND
   - [ ] Isolated sensor nets
     - [ ] pH
-      - 3.3V: + via adjacent to U15
-      - GND: - via adjacent to U15
-      - 1V: This via is just above the pH BNC connector, near R1
+      - [ ] 3.3V: + via adjacent to U15
+      - [ ] GND: - via adjacent to U15
+      - [ ] 1V: This via is just above the pH BNC connector, near R1
     - [ ] ORP
-      - 3.3V: + via just above the ORP BNC connector, to the left of U2
-      - GND: - via just above the ORP BNC connector, to the left of U2
-      - 1V: This via is just below C31, check for shorts here between the + and - vias
+      - [ ] 3.3V: + via just above the ORP BNC connector, to the left of U2
+      - [ ] GND: - via just above the ORP BNC connector, to the left of U2
+      - [ ] 1V: This via is just below C31, check for shorts here between the + and - vias
     - [ ] EC/Temperature
-      - 3.3V: + via adjacent to U13
-      - GND: - via adjacent to U13
-      - 1V: The 1V via is just above the temperature sensor terminal block.
+      - [ ] 3.3V: + via adjacent to U13
+      - [ ] GND: - via adjacent to U13
+      - [ ] 1V: The 1V via is just above the temperature sensor terminal block.
 
 Once you're satisfied with a visual inspection and you've verified that there are no shorts on power rails, you can proceed to flashing the firmware and assembling the unit.
 

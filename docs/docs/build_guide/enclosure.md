@@ -20,6 +20,16 @@ The screen and pump should fit snugly into these holders.  Adjust your print set
 - [ ] 2x Pump plates
 - [ ] 2x Screen holders
 
+  NOTE: the enclosure body shown in most of these assembly photos has 2 of its sides chopped off.  Additionally, in later assembly photos the pump plates and screen holders are printed in a white filament.  These are simply to make certain steps easier to see -- your enclosure body should have all 4 sides, and there's no need to use a different filament for internal printed parts when you're building this.
+
+<div class="grid cards" markdown>
+
+- ![All printed parts](../assets/enclosure_parts.png){ data-title="A heat-set insert ready for insertion" }
+
+- ![Prepared Enclosure](../assets/enclosure_body_and_lid_with_heat_sets.png){ data-title="Enclosure body and lid once all heat-set inserts are in place" }
+
+</div>
+
 Tree supports work well for the connector holes on the bottom wall of the enclosure, as well as overhanging screw holes.  As with the fit testers, use scarf seams if you can.
 
 ## Heat-Set Insert Installation
@@ -34,13 +44,13 @@ After printing, install the M3x5x4 heat-set inserts:
 
 <div class="grid cards" markdown>
 
-- ![Heat-set insert in hole](../assets/screen_in_enclosure.png){ data-title="A heat-set insert ready for insertion" }
+- ![Heat-set insert in hole](../assets/heat_set_empty.png){ data-title="A heat-set insert ready for insertion" }
 
-- ![Heat-set insert insertion](../assets/screen_screwed_in.png){ data-title="Mid-insertion, try to keep your soldering iron vertical, and apply only light pressure to it" } 
+- ![Heat-set insert insertion](../assets/heat_set_with_iron.png){ data-title="Mid-insertion, try to keep your soldering iron vertical, and apply only light pressure to it" } 
 
-- ![Heat-set insert fully in](../assets/screen_holder_alt_view.png){ data-title="Heat set insert after insertion.  Sitting slightly below the surface is fine, but you don't want them sticking up out of the hole." }
+- ![Heat-set insert fully in](../assets/heat_set_inserted.png){ data-title="Heat set insert after insertion.  Sitting slightly below the surface is fine, but you don't want them sticking up out of the hole." }
 
-- ![All heat-set inserts in place](../assets/screen_connector_locked.png){ data-title="All heat-set inserts successfully inserted into the enclosure" }
+- ![All heat-set inserts in place](../assets/enclosure_body_with_heat_sets.png){ data-title="All heat-set inserts successfully inserted into the enclosure body" }
 
 </div>
 

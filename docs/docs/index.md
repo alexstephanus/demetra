@@ -52,6 +52,6 @@ There are some features that currently have hardware support, but aren't handled
 
 - [ ] Plumb the external Digital I/O pin through in software to allow monitoring of an external flood sensor.  
 - [ ] External I2C integration to ingest data from miscellaneous sensors.  The hardware configuration has been confirmed to work, but there isn't currently software support for using it.
-- [ ] WiFi and MQTT support.  The ESP32 hardware supports this, but it's not yet built out.  This would allow for remote configuration and monitoring, as well as the ability to set up healthchecks and, for example, error notifications
-- [ ] Support for multiple treatment solutions of the same type.
+- [ ] WiFi and MQTT support.  The ESP32 hardware supports this, but it's not yet built out.  This would allow for remote configuration and monitoring, as well as the ability to set up healthchecks, dashboards, and notifications on warnings and errors.
+- [ ] Support for multiple treatment solutions of the same type, .
 - [ ] The CAN and RS485 hardware is currently totally untested.
