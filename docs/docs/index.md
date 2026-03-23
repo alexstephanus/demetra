@@ -9,6 +9,12 @@ Demetra is built almost exclusively with off-the-shelf parts and components.  Th
 - Motherboard:  Designed to be hand-populated, with primarily 0805 passives and SOIC-package ICs.  Any circuit board manufacturer should be able to fabricate the bare PCB, and you can populate it yourself.
 - Enclosure:  240mm x 210mm x 65mm, which fits many consumer 3D printers.
 
+<div class="grid cards" markdown>
+
+- ![Demetra](../assets/demetra.png){ data-title="Demetra fully assembled.  Visible are the 6 peristaltic dosing pumps and screen.  Not pictured: sensor inputs" }
+
+</div>
+
 ## What it does
 
 Demetra continuously monitors your system's pH, nutrient, and ORP levels, and adjusts them as needed to maintain optimal growth conditions.
