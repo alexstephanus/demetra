@@ -8,7 +8,6 @@ theme:
 plugins:
   - glightbox:
       caption_position: bottom
-      alt_caption: true
 
 markdown_extensions:
   - attr_list
