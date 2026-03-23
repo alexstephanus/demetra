@@ -38,6 +38,7 @@ Outside of PCB assembly and enclosure printing time, assembly and initial setup 
 ## Cost
 
 It costs about $400 to build, excluding sensors.
+
 - Motherboard: $230: $100 shipped for fabrication of the bare PCB from JLCPCB, $130 for components from digikey (other suppliers might charge different prices).
 - Enclosure: 500g of your chosen filament (call it $10), and heat-set inserts (~$10 for a set on Amazon, less from AliExpress)
 - Peristaltic pumps: $80 shipped for 6 off of AliExpress, and JST pigtails are cheap if you throw in that order as well.
