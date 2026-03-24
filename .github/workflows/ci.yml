@@ -11,7 +11,7 @@ env:
 
 jobs:
   firmware:
-    name: Firmware
+    name: Lint, Fmt, Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
