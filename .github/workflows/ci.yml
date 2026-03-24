@@ -17,12 +17,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Install ESP Rust toolchain
-        uses: esp-rs/xtensa-toolchain@v1.5
-        with:
-          default: true
-          version: "1.88.0"
-          buildtargets: esp32s3
+      - name: Install nightly components
+        run: rustup component add rust-src
 
       - name: Cache cargo dependencies
         uses: actions/cache@v3
@@ -36,9 +32,9 @@ jobs:
             firmware/lib/target/
             firmware/chip/target/
             firmware/simulation/target/
-          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('firmware/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-esp-cargo-
+            ${{ runner.os }}-cargo-
 
       - name: Run cargo check
         run: cargo check-lib
@@ -51,12 +47,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Install ESP Rust toolchain
-        uses: esp-rs/xtensa-toolchain@v1.5
-        with:
-          default: true
-          version: "1.88.0"
-          buildtargets: esp32s3
+      - name: Install nightly components
+        run: rustup component add rust-src
 
       - name: Cache cargo dependencies
         uses: actions/cache@v3
@@ -70,9 +62,9 @@ jobs:
             firmware/lib/target/
             firmware/chip/target/
             firmware/simulation/target/
-          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('firmware/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-esp-cargo-
+            ${{ runner.os }}-cargo-
 
       - name: Run unit tests
         run: cargo unit-test
@@ -80,6 +72,40 @@ jobs:
 
   lints:
     name: Lints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install nightly components
+        run: rustup component add rustfmt clippy rust-src
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            firmware/target/
+            firmware/lib/target/
+            firmware/chip/target/
+            firmware/simulation/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('firmware/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check
+        working-directory: ./firmware
+
+      - name: Run cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: ./firmware
+
+  build-chip:
+    name: Build Chip
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -101,17 +127,11 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             firmware/target/
-            firmware/lib/target/
             firmware/chip/target/
-            firmware/simulation/target/
           key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-esp-cargo-
 
-      - name: Run cargo fmt
-        run: cargo fmt --all -- --check
-        working-directory: ./firmware
-
-      - name: Run cargo clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Build chip firmware
+        run: cargo +esp build-chip-release
         working-directory: ./firmware
