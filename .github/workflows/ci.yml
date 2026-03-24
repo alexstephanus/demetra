@@ -36,7 +36,7 @@ jobs:
             firmware/lib/target/
             firmware/chip/target/
             firmware/simulation/target/
-          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.toml', 'firmware/lib/Cargo.toml', 'firmware/chip/Cargo.toml') }}
+          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-esp-cargo-
 
@@ -70,7 +70,7 @@ jobs:
             firmware/lib/target/
             firmware/chip/target/
             firmware/simulation/target/
-          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.toml', 'firmware/lib/Cargo.toml', 'firmware/chip/Cargo.toml') }}
+          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-esp-cargo-
 
@@ -104,7 +104,7 @@ jobs:
             firmware/lib/target/
             firmware/chip/target/
             firmware/simulation/target/
-          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.toml', 'firmware/lib/Cargo.toml', 'firmware/chip/Cargo.toml') }}
+          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-esp-cargo-
 
