@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install ESP Rust toolchain
+        uses: esp-rs/xtensa-toolchain@v1.5
+        with:
+          default: true
+          version: "1.88.0"
+          buildtargets: esp32s3
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            firmware/target/
+            firmware/lib/target/
+            firmware/chip/target/
+            firmware/simulation/target/
+          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.toml', 'firmware/lib/Cargo.toml', 'firmware/chip/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-esp-cargo-
+
+      - name: Run cargo check
+        run: cargo check-lib
+        working-directory: ./firmware
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install ESP Rust toolchain
+        uses: esp-rs/xtensa-toolchain@v1.5
+        with:
+          default: true
+          version: "1.88.0"
+          buildtargets: esp32s3
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            firmware/target/
+            firmware/lib/target/
+            firmware/chip/target/
+            firmware/simulation/target/
+          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.toml', 'firmware/lib/Cargo.toml', 'firmware/chip/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-esp-cargo-
+
+      - name: Run unit tests
+        run: cargo unit-test
+        working-directory: ./firmware
+
+  lints:
+    name: Lints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install ESP Rust toolchain
+        uses: esp-rs/xtensa-toolchain@v1.5
+        with:
+          default: true
+          version: "1.88.0"
+          buildtargets: esp32s3
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            firmware/target/
+            firmware/lib/target/
+            firmware/chip/target/
+            firmware/simulation/target/
+          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.toml', 'firmware/lib/Cargo.toml', 'firmware/chip/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-esp-cargo-
+
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check
+        working-directory: ./firmware
+
+      - name: Run cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: ./firmware
