@@ -20,6 +20,9 @@ jobs:
       - name: Install nightly components
         run: rustup component add rust-src --toolchain nightly
 
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
+
       - name: Cache cargo dependencies
         uses: actions/cache@v3
         with:
@@ -49,6 +52,9 @@ jobs:
 
       - name: Install nightly components
         run: rustup component add rust-src --toolchain nightly
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
 
       - name: Cache cargo dependencies
         uses: actions/cache@v3
@@ -115,7 +121,7 @@ jobs:
         uses: esp-rs/xtensa-toolchain@v1.5
         with:
           default: true
-          version: "1.88.0"
+          version: "1.93.0"
           buildtargets: esp32s3
 
       - name: Cache cargo dependencies
