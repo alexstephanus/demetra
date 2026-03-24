@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install nightly components
-        run: rustup component add rust-src
+        run: rustup component add rust-src --toolchain nightly
 
       - name: Cache cargo dependencies
         uses: actions/cache@v3
@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install nightly components
-        run: rustup component add rust-src
+        run: rustup component add rust-src --toolchain nightly
 
       - name: Cache cargo dependencies
         uses: actions/cache@v3
@@ -78,7 +78,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install nightly components
-        run: rustup component add rustfmt clippy rust-src
+        run: rustup component add rustfmt clippy rust-src --toolchain nightly
 
       - name: Cache cargo dependencies
         uses: actions/cache@v3
