@@ -298,19 +298,17 @@ mod tests {
 
     #[tokio::test]
     #[rstest::rstest]
-    #[case(DosingPump::DoseOne, 1, 0)]
-    #[case(DosingPump::DoseTwo, 2, 1)]
-    #[case(DosingPump::DoseThree, 3, 2)]
-    #[case(DosingPump::DoseFour, 4, 3)]
-    #[case(DosingPump::DoseFive, 5, 4)]
-    #[case(DosingPump::DoseSix, 6, 5)]
-    async fn test_calibrate_dosing_pump(
-        #[case] pump: DosingPump,
-        #[case] pump_number: i32,
-        #[case] pump_index: usize,
-    ) {
+    #[case(DosingPump::DoseOne)]
+    #[case(DosingPump::DoseTwo)]
+    #[case(DosingPump::DoseThree)]
+    #[case(DosingPump::DoseFour)]
+    #[case(DosingPump::DoseFive)]
+    #[case(DosingPump::DoseSix)]
+    async fn test_calibrate_dosing_pump(#[case] pump: DosingPump) {
         use crate::config::calibration::DoseCalibrationPoint;
 
+        let pump_number = pump.to_int() as i32 + 1;
+        let pump_index = pump.to_int();
         let mut harness = TestHarness::new();
         mock_ctx!(ctx);
 
