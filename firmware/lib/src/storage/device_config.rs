@@ -29,8 +29,8 @@ pub async fn set_device_config(config: DeviceConfig) {
 pub async fn update_device_config<S: Storage<Error = E>, E: Debug>(
     buffer: &mut RingBuffer<DeviceConfig, EmptyMetadata, S, E>,
     write_timestamp: DateTime<Utc>,
-    update_fn: impl FnOnce(&mut DeviceConfig) -> (),
-) -> () {
+    update_fn: impl FnOnce(&mut DeviceConfig),
+) {
     let _write_guard = CONFIG_WRITE_SERIALIZER.lock().await;
 
     let cloned_device_config = {

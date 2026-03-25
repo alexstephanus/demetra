@@ -9,54 +9,39 @@ cfg_if::cfg_if! {
 use crate::storage::ring_buffer::{MetadataSerialize, RingBuffer};
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum LogLevel {
     Error = 0,
     Warn = 1,
+    #[default]
     Info = 2,
     Debug = 3,
 }
 
-impl Default for LogLevel {
-    fn default() -> Self {
-        LogLevel::Info
-    }
-}
-
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum LogCategory {
     Sensor = 0,
     Pump = 1,
     Dosing = 2,
     Network = 3,
+    #[default]
     System = 4,
     Calibration = 5,
     Hardware = 6,
 }
 
-impl Default for LogCategory {
-    fn default() -> Self {
-        LogCategory::System
-    }
-}
-
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum ErrorType {
     Hardware = 0,
     Configuration = 1,
     Network = 2,
+    #[default]
     Software = 3,
-}
-
-impl Default for ErrorType {
-    fn default() -> Self {
-        ErrorType::Software
-    }
 }
 
 #[repr(C, packed)]

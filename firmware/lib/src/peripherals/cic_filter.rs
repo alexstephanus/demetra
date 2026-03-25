@@ -36,6 +36,7 @@ impl OversampleRatio {
 /// Third-order sinc filter, with user-specifiable decimation factor
 /// The output takes three cycles to settle, so if the iterator
 /// doesn't have enough elements to settle, it returns Err(())
+#[allow(clippy::result_unit_err)]
 pub fn cic_filter_order_3(
     bits: impl IntoIterator<Item = bool>,
     osr: OversampleRatio,

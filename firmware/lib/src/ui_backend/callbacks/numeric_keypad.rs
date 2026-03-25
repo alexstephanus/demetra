@@ -22,7 +22,7 @@ fn append_digit(digit: SharedString, existing_value: SharedString) -> SharedStri
             return "0.".into();
         }
     } else if existing_value == "0" {
-        return digit.into();
+        return digit;
     }
 
     format!("{}{}", existing_value, digit).into()

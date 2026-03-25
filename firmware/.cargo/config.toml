@@ -9,6 +9,7 @@ unit-test-mac = 'test -p lib --release --target=aarch64-apple-darwin --features 
 check-chip = 'check -p chip --target=xtensa-esp32s3-none-elf -Zbuild-std=core,alloc'
 build-chip = 'build -p chip --target=xtensa-esp32s3-none-elf'
 build-chip-release = 'build -p chip --release --target=xtensa-esp32s3-none-elf -Z build-std=core,alloc'
+lint = 'clippy -p lib --target=x86_64-unknown-linux-gnu --features emulation -Z build-std=core,alloc,std -- -D warnings'
 flash-chip = 'run -p chip --target=xtensa-esp32s3-none-elf --release -Z build-std=core,alloc'
 
 [build]

@@ -61,20 +61,12 @@ static VOLTAGE_READINGS: LockedState<VoltageReadings> = RwLock::new(VoltageReadi
     temperature_celsius: None,
 });
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct PumpRuntimeState {
     pub dosing_pumps: [bool; 6],
     pub outlets: [bool; 4],
 }
 
-impl Default for PumpRuntimeState {
-    fn default() -> Self {
-        Self {
-            dosing_pumps: [false; 6],
-            outlets: [false; 4],
-        }
-    }
-}
 
 static PUMP_RUNTIME_STATE: LockedState<PumpRuntimeState> = RwLock::new(PumpRuntimeState {
     dosing_pumps: [false; 6],

@@ -175,7 +175,7 @@ async fn read_sensors<Sensors: SensorReadRaw>(
 ) -> SensorReadings {
     let temperature = match (config.temperature.enabled, &config.temperature.beta_value) {
         (true, Some(beta)) => {
-            match sensor_controller.measure_temperature(beta.clone()).await {
+            match sensor_controller.measure_temperature(*beta).await {
                 Ok(temp) => Some(temp),
                 Err(e) => {
                     flash_log_error(&LoggableError::from(e));

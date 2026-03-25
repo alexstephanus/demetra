@@ -167,7 +167,7 @@ pub fn process_log_request<L: Logger>(request: LogRequest, logger: &mut L) {
         Some(ctx) => LogEntry::with_context(request.message, timestamp, ctx),
         None => LogEntry::new(request.message, timestamp),
     };
-    if let Err(_) = logger.log(entry, level, category, request.error_type) {
+    if logger.log(entry, level, category, request.error_type).is_err() {
         log::error!("Failed to write log entry");
     }
     if let Some(msg) = error_message {

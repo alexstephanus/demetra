@@ -53,6 +53,17 @@ impl TimestampedValue for ThreePointPhCalibration {
     }
 }
 
+impl Default for ThreePointPhCalibration {
+    fn default() -> Self {
+        Self::new(
+            PhMeasurementPoint::new(10.00, Voltage::from_mv(-57.0 * 3.0), Temperature::from_celsius(25.0)),
+            PhMeasurementPoint::new(7.00, Voltage::from_mv(0.0), Temperature::from_celsius(25.0)),
+            PhMeasurementPoint::new(4.00, Voltage::from_mv(57.0 * 3.0), Temperature::from_celsius(25.0)),
+            DateTime::<Utc>::from_timestamp_millis(0).unwrap(),
+        )
+    }
+}
+
 impl ThreePointPhCalibration {
     pub fn new(
         high: PhMeasurementPoint,
@@ -73,15 +84,6 @@ impl ThreePointPhCalibration {
         }
     }
 
-    pub fn default() -> Self {
-        Self::new(
-            PhMeasurementPoint::new(10.00, Voltage::from_mv(-57.0 * 3.0), Temperature::from_celsius(25.0)),
-            PhMeasurementPoint::new(7.00, Voltage::from_mv(0.0), Temperature::from_celsius(25.0)),
-            PhMeasurementPoint::new(4.00, Voltage::from_mv(57.0 * 3.0), Temperature::from_celsius(25.0)),
-            DateTime::<Utc>::from_timestamp_millis(0).unwrap(),
-        )
-    }
-
     fn calculate_slope_and_offset(
         high: &PhMeasurementPoint,
         mid: &PhMeasurementPoint,
@@ -99,7 +101,7 @@ impl ThreePointPhCalibration {
                     * (NEUTRAL_PH - mid.ph_value)));
             let slope_low = ideal_temperature.kelvin() * (calibration_offset.mv() - low.measured_voltage.mv())
                 / (low.temperature.kelvin() * (NEUTRAL_PH - low.ph_value));
-            return (slope_high, slope_low, calibration_offset);
+            (slope_high, slope_low, calibration_offset)
         } else {
             let slope_low = ideal_temperature.kelvin() * (mid.measured_voltage.mv() - low.measured_voltage.mv())
                 / ((mid.ph_value * mid.temperature.kelvin())
@@ -110,7 +112,7 @@ impl ThreePointPhCalibration {
                     * (mid.ph_value - NEUTRAL_PH)));
             let slope_high = (high.measured_voltage.mv() - calibration_offset.mv()) * ideal_temperature.kelvin()
                 / (high.temperature.kelvin() * (high.ph_value - NEUTRAL_PH));
-            return (slope_high, slope_low, calibration_offset);
+            (slope_high, slope_low, calibration_offset)
         }
     }
 
@@ -153,7 +155,7 @@ mod test_ph_calibration {
 
     fn assert_float_equality(float1: f32, float2: f32) {
         assert!(
-            float1 - float2 < FLOAT_EPSILON && float1 - float2 > (-1.0 * FLOAT_EPSILON),
+            float1 - float2 < FLOAT_EPSILON && float1 - float2 > -FLOAT_EPSILON,
             "f1: {}, f2: {}",
             float1,
             float2

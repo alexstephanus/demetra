@@ -165,6 +165,7 @@ fn blend_range_band(target: &mut SlintDrawTarget, top_y: i32, bottom_y: i32, lef
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_y_grid_and_labels(
     target: &mut SlintDrawTarget,
     min_acceptable: f32,

@@ -17,5 +17,8 @@ hardware/enclosure/enclosure/
 # Enclosure STLs (generate from .FCStd for releases)
 hardware/enclosure/*.stl
 
+# Rust ICE dumps
+rustc-ice-*
+
 # Claude Code
 CLAUDE.md
