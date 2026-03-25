@@ -4,6 +4,5 @@
 /.local/
 /target
 /vendor
-/Cargo.lock
 /simulation/target
 /simulation/target-sim

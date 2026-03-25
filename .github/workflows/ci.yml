@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  firmware:
+    name: Lint, Fmt, Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install nightly components
+        run: rustup component add rustfmt clippy rust-src --toolchain nightly
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            firmware/target/
+            firmware/lib/target/
+            firmware/chip/target/
+            firmware/simulation/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('firmware/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run cargo fmt
+        id: fmt
+        continue-on-error: true
+        run: cargo fmt --all -- --check
+        working-directory: ./firmware
+
+      - name: Run cargo check
+        id: check
+        continue-on-error: true
+        run: cargo check-lib
+        working-directory: ./firmware
+
+      - name: Run cargo clippy
+        id: clippy
+        continue-on-error: true
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: ./firmware
+
+      - name: Run unit tests
+        id: test
+        continue-on-error: true
+        run: cargo unit-test
+        working-directory: ./firmware
+
+      - name: Check results
+        run: |
+          failed=""
+          [ "${{ steps.fmt.outcome }}" = "failure" ] && failed="$failed fmt"
+          [ "${{ steps.check.outcome }}" = "failure" ] && failed="$failed check"
+          [ "${{ steps.clippy.outcome }}" = "failure" ] && failed="$failed clippy"
+          [ "${{ steps.test.outcome }}" = "failure" ] && failed="$failed test"
+          if [ -n "$failed" ]; then
+            echo "Failed steps:$failed"
+            exit 1
+          fi
+
+  build-chip:
+    name: Build Chip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install ESP Rust toolchain
+        uses: esp-rs/xtensa-toolchain@v1.5
+        with:
+          default: true
+          version: "1.93.0"
+          buildtargets: esp32s3
+
+      - name: Cache cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            firmware/target/
+            firmware/chip/target/
+          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-esp-cargo-
+
+      - name: Build chip firmware
+        run: cargo +esp build-chip-release
+        working-directory: ./firmware
