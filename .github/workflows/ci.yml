@@ -24,20 +24,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
 
       - name: Cache cargo dependencies
-        uses: actions/cache@v3
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            firmware/target/
-            firmware/lib/target/
-            firmware/chip/target/
-            firmware/simulation/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('firmware/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          workspaces: firmware
 
       - name: Run cargo fmt
         id: fmt
@@ -83,18 +72,9 @@ jobs:
           buildtargets: esp32s3
 
       - name: Cache cargo dependencies
-        uses: actions/cache@v3
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            firmware/target/
-            firmware/chip/target/
-          key: ${{ runner.os }}-esp-cargo-${{ hashFiles('firmware/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-esp-cargo-
+          workspaces: firmware
 
       - name: Build chip firmware
         run: cargo +esp build-chip-release
