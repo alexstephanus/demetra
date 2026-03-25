@@ -218,6 +218,8 @@ pub(crate) mod test_helpers {
     pub struct TestHarness {
         pub ui: MainWindow,
         pub messages: Arc<StdMutex<Vec<UiMessage>>>,
+        last_pumps: crate::peripherals::DosingPumpStateList,
+        last_outlets: crate::peripherals::OutletStateList,
     }
 
     impl TestHarness {
@@ -229,7 +231,12 @@ pub(crate) mod test_helpers {
             super::register_all_callbacks_with_sender(&ui, move |msg| {
                 captured.lock().unwrap().push(msg);
             });
-            Self { ui, messages }
+            Self {
+                ui,
+                messages,
+                last_pumps: crate::peripherals::DosingPumpStateList::default(),
+                last_outlets: crate::peripherals::OutletStateList::default(),
+            }
         }
 
         pub fn take_messages(&self) -> Vec<UiMessage> {
@@ -240,6 +247,16 @@ pub(crate) mod test_helpers {
             for msg in self.take_messages() {
                 super::dispatch(msg, ctx).await;
             }
+        }
+
+        pub async fn sync_to_ui(&mut self) {
+            crate::ui_backend::sync_runtime_state_to_ui(&self.ui).await;
+            crate::ui_backend::sync_device_config_to_ui(
+                &self.ui,
+                &mut self.last_pumps,
+                &mut self.last_outlets,
+            )
+            .await;
         }
     }
 }
@@ -644,5 +661,56 @@ mod tests {
         let config = get_device_config().await;
         assert_eq!(config.ph.min_acceptable, 5.5);
         assert_eq!(config.ph.max_acceptable, 7.5);
+    }
+
+    #[tokio::test]
+    async fn test_sync_device_config_to_ui() {
+        let mut harness = TestHarness::new();
+
+        crate::storage::set_device_config(crate::config::device_config::DeviceConfig {
+            tank_size: Volume::from_liters(42.0),
+            temperature_display_unit: TemperatureDisplayUnit::Fahrenheit,
+            conductivity_display_unit: ConductivityDisplayUnit::Ppm500,
+            ph: crate::config::device_config::PhSensorState {
+                enabled: true,
+                min_acceptable: 6.0,
+                max_acceptable: 7.0,
+                ..crate::config::device_config::DeviceConfig::default().ph
+            },
+            ..crate::config::device_config::DeviceConfig::default()
+        })
+        .await;
+
+        harness.sync_to_ui().await;
+
+        let app = harness.ui.global::<AppUiState>();
+        assert_eq!(app.get_tank_size(), 42.0);
+        assert_eq!(
+            app.get_temperature_display_unit(),
+            TemperatureDisplayUnit::Fahrenheit
+        );
+        assert_eq!(
+            app.get_conductivity_display_unit(),
+            ConductivityDisplayUnit::Ppm500
+        );
+
+        let sensors = harness.ui.global::<SensorUiState>();
+        assert!(sensors.get_ph_enabled());
+        assert_eq!(sensors.get_ph_min_acceptable(), 6.0);
+        assert_eq!(sensors.get_ph_max_acceptable(), 7.0);
+    }
+
+    #[tokio::test]
+    async fn test_sync_sensor_readings_to_ui() {
+        let mut harness = TestHarness::new();
+
+        crate::ui_backend::state::update_current_sensor_value(SensorType::Ph, 6.8).await;
+        crate::ui_backend::state::update_current_sensor_value(SensorType::Temperature, 24.5).await;
+
+        harness.sync_to_ui().await;
+
+        let sensors = harness.ui.global::<SensorUiState>();
+        assert_eq!(sensors.get_current_ph_value(), 6.8);
+        assert_eq!(sensors.get_current_temperature_celsius(), 24.5);
     }
 }
