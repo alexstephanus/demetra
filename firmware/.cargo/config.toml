@@ -12,9 +12,6 @@ build-chip-release = 'build -p chip --release --target=xtensa-esp32s3-none-elf -
 lint = 'clippy -p lib --target=x86_64-unknown-linux-gnu --features emulation -Z build-std=core,alloc,std -- -D warnings'
 flash-chip = 'run -p chip --target=xtensa-esp32s3-none-elf --release -Z build-std=core,alloc'
 
-[build]
-target = "xtensa-esp32s3-none-elf"
-
 [target.'cfg(target_arch = "xtensa")']
 runner    = "espflash flash --monitor --partition-table chip/partition_table.csv --ignore_app_descriptor -a hard-reset"
 rustflags = [

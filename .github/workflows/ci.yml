@@ -54,7 +54,7 @@ jobs:
       - name: Run cargo clippy
         id: clippy
         continue-on-error: true
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo lint
         working-directory: ./firmware
 
       - name: Run unit tests
