@@ -215,6 +215,28 @@ pub(crate) mod test_helpers {
         TreatmentController::initialize(StubPumps, SensorController::new(StubSensors))
     }
 
+    macro_rules! mock_ctx {
+        ($ctx:ident) => {
+            let mut _rtc = $crate::ui_backend::actions::test_helpers::StubRtc;
+            let mut _buffer = $crate::ui_backend::actions::test_helpers::mock_ring_buffer();
+            let _tc = $crate::ui_backend::actions::test_helpers::mock_treatment_controller();
+            let _tc_mutex: embassy_sync::mutex::Mutex<
+                embassy_sync::blocking_mutex::raw::NoopRawMutex,
+                _,
+            > = embassy_sync::mutex::Mutex::new(_tc);
+            let mut $ctx = $crate::ui_backend::actions::MessageContext {
+                current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0)
+                    .unwrap(),
+                current_ticks: 0,
+                rtc: &mut _rtc,
+                treatment_controller: &_tc_mutex,
+                config_buffer: &mut _buffer,
+            };
+        };
+    }
+
+    pub(crate) use mock_ctx;
+
     pub struct TestHarness {
         pub ui: MainWindow,
         pub messages: Arc<StdMutex<Vec<UiMessage>>>,
@@ -243,13 +265,10 @@ pub(crate) mod test_helpers {
             std::mem::take(&mut *self.messages.lock().unwrap())
         }
 
-        pub async fn dispatch_all(&self, ctx: &mut TestMessageContext<'_, '_>) {
+        pub async fn dispatch_all(&mut self, ctx: &mut TestMessageContext<'_, '_>) {
             for msg in self.take_messages() {
                 super::dispatch(msg, ctx).await;
             }
-        }
-
-        pub async fn sync_to_ui(&mut self) {
             crate::ui_backend::sync_runtime_state_to_ui(&self.ui).await;
             crate::ui_backend::sync_device_config_to_ui(
                 &self.ui,
@@ -275,32 +294,23 @@ mod tests {
         },
         units::Volume,
     };
-    use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
     use slint::{ComponentHandle, Model};
 
     #[tokio::test]
     #[rstest::rstest]
-    #[case(DosingPump::DoseOne, 1)]
-    #[case(DosingPump::DoseTwo, 2)]
-    #[case(DosingPump::DoseThree, 3)]
-    #[case(DosingPump::DoseFour, 4)]
-    #[case(DosingPump::DoseFive, 5)]
-    #[case(DosingPump::DoseSix, 6)]
-    async fn test_calibrate_dosing_pump(#[case] pump: DosingPump, #[case] pump_number: i32) {
+    #[case(DosingPump::DoseOne)]
+    #[case(DosingPump::DoseTwo)]
+    #[case(DosingPump::DoseThree)]
+    #[case(DosingPump::DoseFour)]
+    #[case(DosingPump::DoseFive)]
+    #[case(DosingPump::DoseSix)]
+    async fn test_calibrate_dosing_pump(#[case] pump: DosingPump) {
         use crate::config::calibration::DoseCalibrationPoint;
 
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let pump_number = pump.to_int() as i32 + 1;
+        let pump_index = pump.to_int();
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         let (vol_3s, vol_10s, vol_30s) = (1.5, 5.0, 15.0);
         harness
@@ -323,22 +333,22 @@ mod tests {
                 .calibration,
             expected,
         );
+
+        let ui_pumps = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
+        assert_eq!(
+            ui_pumps.row_data(pump_index).unwrap().enabled,
+            get_device_config()
+                .await
+                .pumps
+                .get_dosing_pump_state(pump)
+                .enabled,
+        );
     }
 
     #[tokio::test]
     async fn test_rename_dosing_pump() {
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         harness
             .ui
@@ -354,22 +364,18 @@ mod tests {
                 .name,
             Some(slint::SharedString::from("New Dose One"))
         );
+
+        let ui_pumps = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
+        assert_eq!(
+            ui_pumps.row_data(0).unwrap().name,
+            slint::SharedString::from("New Dose One")
+        );
     }
 
     #[tokio::test]
     async fn test_toggle_dosing_pump() {
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         harness.ui.global::<PumpUiState>().invoke_enable_pump(0);
         harness.dispatch_all(&mut ctx).await;
@@ -380,6 +386,8 @@ mod tests {
                 .get_dosing_pump_state(DosingPump::DoseOne)
                 .enabled
         );
+        let ui_pumps = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
+        assert!(ui_pumps.row_data(0).unwrap().enabled);
 
         harness.ui.global::<PumpUiState>().invoke_enable_pump(0);
         harness.dispatch_all(&mut ctx).await;
@@ -390,6 +398,8 @@ mod tests {
                 .get_dosing_pump_state(DosingPump::DoseOne)
                 .enabled
         );
+        let ui_pumps = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
+        assert!(ui_pumps.row_data(0).unwrap().enabled);
 
         harness.ui.global::<PumpUiState>().invoke_disable_pump(0);
         harness.dispatch_all(&mut ctx).await;
@@ -400,6 +410,8 @@ mod tests {
                 .get_dosing_pump_state(DosingPump::DoseOne)
                 .enabled
         );
+        let ui_pumps = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
+        assert!(!ui_pumps.row_data(0).unwrap().enabled);
 
         harness.ui.global::<PumpUiState>().invoke_disable_pump(0);
         harness.dispatch_all(&mut ctx).await;
@@ -410,22 +422,14 @@ mod tests {
                 .get_dosing_pump_state(DosingPump::DoseOne)
                 .enabled
         );
+        let ui_pumps = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
+        assert!(!ui_pumps.row_data(0).unwrap().enabled);
     }
 
     #[tokio::test]
     async fn test_set_dosing_pump_status() {
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         harness
             .ui
@@ -441,6 +445,8 @@ mod tests {
                 .status,
             Status::Error,
         );
+        let ui_pumps = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
+        assert_eq!(ui_pumps.row_data(0).unwrap().status, Status::Error);
 
         harness
             .ui
@@ -456,22 +462,14 @@ mod tests {
                 .status,
             Status::Ok,
         );
+        let ui_pumps = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
+        assert_eq!(ui_pumps.row_data(0).unwrap().status, Status::Ok);
     }
 
     #[tokio::test]
     async fn test_set_treatment_solution() {
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         harness
             .ui
@@ -496,22 +494,16 @@ mod tests {
                 solution_strength: 4.0,
             }
         );
+        let ui_pumps = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
+        let ui_solution = &ui_pumps.row_data(0).unwrap().treatment_solution;
+        assert_eq!(ui_solution.solution_type, TreatmentSolutionType::PhDown);
+        assert_eq!(ui_solution.solution_strength, 4.0);
     }
 
     #[tokio::test]
     async fn test_set_conductivity_display_unit() {
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         harness
             .ui
@@ -523,22 +515,19 @@ mod tests {
             get_device_config().await.conductivity_display_unit,
             ConductivityDisplayUnit::UsPerCm
         );
+        assert_eq!(
+            harness
+                .ui
+                .global::<AppUiState>()
+                .get_conductivity_display_unit(),
+            ConductivityDisplayUnit::UsPerCm
+        );
     }
 
     #[tokio::test]
     async fn test_set_temperature_display_unit() {
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         harness
             .ui
@@ -550,22 +539,19 @@ mod tests {
             get_device_config().await.temperature_display_unit,
             TemperatureDisplayUnit::Fahrenheit
         );
+        assert_eq!(
+            harness
+                .ui
+                .global::<AppUiState>()
+                .get_temperature_display_unit(),
+            TemperatureDisplayUnit::Fahrenheit
+        );
     }
 
     #[tokio::test]
     async fn test_set_tank_size() {
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         harness.ui.global::<AppUiState>().invoke_set_tank_size(10.0);
         harness.dispatch_all(&mut ctx).await;
@@ -574,22 +560,13 @@ mod tests {
             get_device_config().await.tank_size,
             Volume::from_liters(10.0)
         );
+        assert_eq!(harness.ui.global::<AppUiState>().get_tank_size(), 10.0);
     }
 
     #[tokio::test]
     async fn test_set_thermistor_beta() {
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         harness
             .ui
@@ -601,22 +578,19 @@ mod tests {
             get_device_config().await.temperature.beta_value,
             Some(4000.0)
         );
+        assert_eq!(
+            harness
+                .ui
+                .global::<SensorUiState>()
+                .get_temperature_beta_value(),
+            4000.0
+        );
     }
 
     #[tokio::test]
     async fn test_enable_disable_sensor() {
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         harness
             .ui
@@ -624,6 +598,7 @@ mod tests {
             .invoke_enable_sensor(SensorType::Ph);
         harness.dispatch_all(&mut ctx).await;
         assert!(get_device_config().await.ph.enabled);
+        assert!(harness.ui.global::<SensorUiState>().get_ph_enabled());
 
         harness
             .ui
@@ -631,22 +606,13 @@ mod tests {
             .invoke_disable_sensor(SensorType::Ph);
         harness.dispatch_all(&mut ctx).await;
         assert!(!get_device_config().await.ph.enabled);
+        assert!(!harness.ui.global::<SensorUiState>().get_ph_enabled());
     }
 
     #[tokio::test]
     async fn test_set_sensor_min_max() {
-        let harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
+        let mut harness = TestHarness::new();
+        mock_ctx!(ctx);
 
         harness
             .ui
@@ -661,116 +627,8 @@ mod tests {
         let config = get_device_config().await;
         assert_eq!(config.ph.min_acceptable, 5.5);
         assert_eq!(config.ph.max_acceptable, 7.5);
-    }
-
-    #[tokio::test]
-    async fn test_roundtrip_tank_size() {
-        let mut harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
-
-        harness.ui.global::<AppUiState>().invoke_set_tank_size(42.0);
-        harness.dispatch_all(&mut ctx).await;
-        harness.sync_to_ui().await;
-
-        assert_eq!(harness.ui.global::<AppUiState>().get_tank_size(), 42.0);
-    }
-
-    #[tokio::test]
-    async fn test_roundtrip_temperature_display_unit() {
-        let mut harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
-
-        harness
-            .ui
-            .global::<AppUiState>()
-            .invoke_set_temperature_display_unit(TemperatureDisplayUnit::Fahrenheit);
-        harness.dispatch_all(&mut ctx).await;
-        harness.sync_to_ui().await;
-
-        assert_eq!(
-            harness
-                .ui
-                .global::<AppUiState>()
-                .get_temperature_display_unit(),
-            TemperatureDisplayUnit::Fahrenheit
-        );
-    }
-
-    #[tokio::test]
-    async fn test_roundtrip_enable_pump() {
-        let mut harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
-
-        harness.ui.global::<PumpUiState>().invoke_enable_pump(0);
-        harness.dispatch_all(&mut ctx).await;
-        harness.sync_to_ui().await;
-
-        let pump_states = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
-        assert!(pump_states.row_data(0).unwrap().enabled);
-    }
-
-    #[tokio::test]
-    async fn test_roundtrip_sensor_config() {
-        let mut harness = TestHarness::new();
-        let mut buffer = mock_ring_buffer();
-        let mut rtc = StubRtc;
-        let tc = mock_treatment_controller();
-        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
-        let mut ctx = super::MessageContext {
-            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
-            current_ticks: 0,
-            rtc: &mut rtc,
-            treatment_controller: &tc_mutex,
-            config_buffer: &mut buffer,
-        };
-
-        harness
-            .ui
-            .global::<SensorUiState>()
-            .invoke_enable_sensor(SensorType::Ph);
-        harness
-            .ui
-            .global::<SensorUiState>()
-            .invoke_set_sensor_min_value(SensorType::Ph, 5.5);
-        harness
-            .ui
-            .global::<SensorUiState>()
-            .invoke_set_sensor_max_value(SensorType::Ph, 7.5);
-        harness.dispatch_all(&mut ctx).await;
-        harness.sync_to_ui().await;
 
         let sensors = harness.ui.global::<SensorUiState>();
-        assert!(sensors.get_ph_enabled());
         assert_eq!(sensors.get_ph_min_acceptable(), 5.5);
         assert_eq!(sensors.get_ph_max_acceptable(), 7.5);
     }
