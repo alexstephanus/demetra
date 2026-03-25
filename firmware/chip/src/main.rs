@@ -1,11 +1,8 @@
 #![deny(unsafe_code, dead_code)]
-
-
 #![no_std]
 #![no_main]
 #![feature(type_alias_impl_trait)]
 #![feature(asm_experimental_arch)]
-
 
 extern crate alloc;
 
@@ -13,23 +10,18 @@ use core::cell::RefCell;
 
 use lib::{
     config::device_config::DeviceConfig,
-    peripherals::{
-        HardwarePumpController,
-        SensorController,
-        rtc::Mcp7940,
-    },
-    storage::{
-        EmptyMetadata,
-        RingBuffer,
-    },
+    peripherals::{rtc::Mcp7940, HardwarePumpController, SensorController},
+    storage::{EmptyMetadata, RingBuffer},
     ui_backend::ui_runner::WINDOW_EVENT_CHANNEL,
     ui_types::MainWindow,
 };
 
 mod hardware_peripherals;
-use hardware_peripherals::{EspTreatmentController, EspTreatmentControllerMutex, HardwareTouchInput, Sensors_1_0_0};
+use hardware_peripherals::{
+    EspTreatmentController, EspTreatmentControllerMutex, HardwareTouchInput, Sensors_1_0_0,
+};
 
-mod tasks; 
+mod tasks;
 
 mod esp_ui_backend;
 
@@ -38,17 +30,12 @@ use embassy_executor::Spawner;
 use embassy_embedded_hal::shared_bus::blocking::i2c::I2cDevice;
 
 use embassy_sync::{
-    blocking_mutex::{
-        raw::NoopRawMutex,
-        Mutex as BlockingMutex
-    },
+    blocking_mutex::{raw::NoopRawMutex, Mutex as BlockingMutex},
     mutex::Mutex,
 };
 use embassy_time::Timer;
-use log::info;
 use esp_backtrace as _;
 use esp_hal::{
-    Blocking,
     gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull},
     i2c::master::{Config as I2cConfig, I2c},
     ledc::{
@@ -60,8 +47,10 @@ use esp_hal::{
     rmt::{Rmt, RxChannelConfig, RxChannelCreator},
     time::Rate,
     timer::timg::TimerGroup,
+    Blocking,
 };
 use esp_storage::FlashStorage;
+use log::info;
 use static_cell::StaticCell;
 
 esp_bootloader_esp_idf::esp_app_desc!();
@@ -70,22 +59,25 @@ static ESP_PERIPHERALS_MUTEX: StaticCell<EspTreatmentControllerMutex> = StaticCe
 
 static LSTIMER0: StaticCell<esp_hal::ledc::timer::Timer<'static, LowSpeed>> = StaticCell::new();
 
-static MCP23017: StaticCell<port_expander::dev::mcp23x17::Mcp23x17<RefCell<port_expander::dev::mcp23x17::Driver<port_expander::dev::mcp23x17::Mcp23017Bus<hardware_peripherals::SharedI2cDevice<'static>>>>>> = StaticCell::new();
+static MCP23017: StaticCell<
+    port_expander::dev::mcp23x17::Mcp23x17<
+        RefCell<
+            port_expander::dev::mcp23x17::Driver<
+                port_expander::dev::mcp23x17::Mcp23017Bus<
+                    hardware_peripherals::SharedI2cDevice<'static>,
+                >,
+            >,
+        >,
+    >,
+> = StaticCell::new();
 
 static MAIN_WINDOW: StaticCell<MainWindow> = StaticCell::new();
 
-static SHARED_I2C_BUS: StaticCell<
-    BlockingMutex<
-        NoopRawMutex,
-        RefCell<I2c<'static, Blocking>>
-    >
-> = StaticCell::new();
+static SHARED_I2C_BUS: StaticCell<BlockingMutex<NoopRawMutex, RefCell<I2c<'static, Blocking>>>> =
+    StaticCell::new();
 
 static FLASH_STORAGE_INTERNALS: StaticCell<
-    BlockingMutex<
-        NoopRawMutex,
-        hardware_peripherals::EspStorageInternals<'static>,
-    >
+    BlockingMutex<NoopRawMutex, hardware_peripherals::EspStorageInternals<'static>>,
 > = StaticCell::new();
 
 #[allow(dead_code, unsafe_code)]
@@ -106,10 +98,10 @@ async fn main(spawner: Spawner) {
         ram_frequency: psram::SpiRamFreq::Freq80m,
         ..Default::default()
     };
-    
+
     let peripherals = esp_hal::init(esp_hal::Config::default().with_psram(psram_config));
     esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
-    
+
     let timg0 = TimerGroup::new(peripherals.TIMG0);
 
     use esp_hal::interrupt::software::SoftwareInterruptControl;
@@ -117,8 +109,12 @@ async fn main(spawner: Spawner) {
 
     esp_rtos::start(timg0.timer0, software_interrupt.software_interrupt0);
 
-    lib::state::init_clock(|| esp_hal::time::Instant::now().duration_since_epoch().as_micros() as u64)
-        .expect("Clock already initialized");
+    lib::state::init_clock(|| {
+        esp_hal::time::Instant::now()
+            .duration_since_epoch()
+            .as_micros() as u64
+    })
+    .expect("Clock already initialized");
 
     let freq = Rate::from_mhz(80);
 
@@ -145,7 +141,7 @@ async fn main(spawner: Spawner) {
     let screen_dc_pin = peripherals.GPIO47;
 
     let touch_interrupt_pin = peripherals.GPIO41;
-    let touch_reset_pin = peripherals.GPIO42; 
+    let touch_reset_pin = peripherals.GPIO42;
 
     let temp_ec_sel_pin = peripherals.GPIO46;
     let temp_ec_sqw_pin = peripherals.GPIO3;
@@ -160,7 +156,7 @@ async fn main(spawner: Spawner) {
     // to have the pin definitions already built in for future reference.
     let _rs435_d_data_pin = peripherals.GPIO16;
     let _rs435_r_data_pin = peripherals.GPIO17;
-    let _rs435_drive_pin =  peripherals.GPIO10;
+    let _rs435_drive_pin = peripherals.GPIO10;
     let _can_rx_pin = peripherals.GPIO18;
     let _can_tx_pin = peripherals.GPIO8;
     let _can_stb_pin = peripherals.GPIO45;
@@ -169,23 +165,25 @@ async fn main(spawner: Spawner) {
     let _free_pin = peripherals.GPIO40;
     let _external_digital_pin = peripherals.GPIO2;
 
-
     ///////////////  Instantiate I2C  ///////////////
 
     let shared_i2c_peripheral = I2c::new(
         peripherals.I2C0,
         I2cConfig::default().with_frequency(Rate::from_khz(400)),
     )
-        .unwrap()
-        .with_sda(i2c_data_pin)
-        .with_scl(i2c_clk_pin);
+    .unwrap()
+    .with_sda(i2c_data_pin)
+    .with_scl(i2c_clk_pin);
 
-    let shared_i2c_bus = &*SHARED_I2C_BUS.init(BlockingMutex::new(RefCell::new(shared_i2c_peripheral)));
+    let shared_i2c_bus =
+        &*SHARED_I2C_BUS.init(BlockingMutex::new(RefCell::new(shared_i2c_peripheral)));
 
     ///////////////  Instantiate MCP23017  ///////////////
 
     let mcp_i2c = I2cDevice::new(shared_i2c_bus);
-    let mcp23017 = MCP23017.init(port_expander::Mcp23x17::new_mcp23017(mcp_i2c, false, false, false));
+    let mcp23017 = MCP23017.init(port_expander::Mcp23x17::new_mcp23017(
+        mcp_i2c, false, false, false,
+    ));
     let mcp_pins = mcp23017.split();
 
     let mcp_dose_0_pin = mcp_pins.gpb7.into_output().unwrap();
@@ -200,7 +198,7 @@ async fn main(spawner: Spawner) {
     let mcp_outlet_3_pin = mcp_pins.gpa7.into_output().unwrap();
     let mcp_adc_sel_0_pin = mcp_pins.gpb1.into_output().unwrap();
     let mcp_adc_sel_1_pin = mcp_pins.gpb2.into_output().unwrap();
-    
+
     let mut mcp_screen_led_pin = mcp_pins.gpb4.into_output().unwrap();
 
     let mcp_current_sense_mux_a_pin = mcp_pins.gpa3.into_output().unwrap();
@@ -215,20 +213,23 @@ async fn main(spawner: Spawner) {
 
     match rtc.get_datetime() {
         Ok(boot_time) => {
-            let boot_micros = esp_hal::time::Instant::now().duration_since_epoch().as_micros();
-            let time_info = lib::peripherals::rtc::SystemTimeInfo::new(boot_time, boot_micros as i64);
+            let boot_micros = esp_hal::time::Instant::now()
+                .duration_since_epoch()
+                .as_micros();
+            let time_info =
+                lib::peripherals::rtc::SystemTimeInfo::new(boot_time, boot_micros as i64);
             lib::state::set_system_time_info(time_info).await;
             info!("System time initialized from RTC: {}", boot_time);
-        },
+        }
         Err(e) => {
             log::error!("Failed to read RTC on boot: {}", e);
-        },
+        }
     }
 
     ///////////// Spawn UI on CPU1 //////////////
-    
+
     // Slint needs more stack space to set up than we can provide on the actual stack.
-    // So the solution is to just leak 
+    // So the solution is to just leak
     #[allow(unsafe_code)]
     let second_core_stack: &'static mut esp_hal::system::Stack<524288> = {
         let b = unsafe {
@@ -236,7 +237,7 @@ async fn main(spawner: Spawner) {
         };
         alloc::boxed::Box::leak(b)
     };
-    
+
     use esp_rtos::embassy::Executor;
 
     esp_rtos::start_second_core(
@@ -248,60 +249,71 @@ async fn main(spawner: Spawner) {
             let executor = EXECUTOR.init(Executor::new());
 
             executor.run(|spawner| {
-                spawner.spawn( crate::tasks::render_ui(
-                    WINDOW_EVENT_CHANNEL.receiver(),
-                    peripherals.SPI2,
-                    Output::new(spi_0_sck_pin, Level::Low, OutputConfig::default()),
-                    Output::new(spi_0_copi_pin, Level::Low, OutputConfig::default()),
-                    Input::new(spi_0_cipo_pin, InputConfig::default()),
-                    Output::new(screen_cs_pin, Level::High, OutputConfig::default()),
-                    Output::new(screen_dc_pin, Level::Low, OutputConfig::default()),
-                    Output::new(screen_reset_pin, Level::High, OutputConfig::default()),
-                    peripherals.DMA_CH0,
-                    TimerGroup::new(peripherals.TIMG1),
-                )).ok();
+                spawner
+                    .spawn(crate::tasks::render_ui(
+                        WINDOW_EVENT_CHANNEL.receiver(),
+                        peripherals.SPI2,
+                        Output::new(spi_0_sck_pin, Level::Low, OutputConfig::default()),
+                        Output::new(spi_0_copi_pin, Level::Low, OutputConfig::default()),
+                        Input::new(spi_0_cipo_pin, InputConfig::default()),
+                        Output::new(screen_cs_pin, Level::High, OutputConfig::default()),
+                        Output::new(screen_dc_pin, Level::Low, OutputConfig::default()),
+                        Output::new(screen_reset_pin, Level::High, OutputConfig::default()),
+                        peripherals.DMA_CH0,
+                        TimerGroup::new(peripherals.TIMG1),
+                    ))
+                    .ok();
             });
         },
     );
 
-    ///////////////  Instantiate Flash and Ring Buffers  ///////////////  
+    ///////////////  Instantiate Flash and Ring Buffers  ///////////////
 
     // esp_rtos::start_second_core takes our CPU_CTRL as input, but only needs it in the
     // context of core startup.  By the time this function steals the CPU_CTRL, start_second_core
     // is finished with it, so stealing it here doesn't cause problems.
     #[allow(unsafe_code)]
-    let stolen_cpu_control = unsafe {
-        esp_hal::system::CpuControl::new(esp_hal::peripherals::CPU_CTRL::steal())
-    };
+    let stolen_cpu_control =
+        unsafe { esp_hal::system::CpuControl::new(esp_hal::peripherals::CPU_CTRL::steal()) };
 
     let flash_storage_internals = FLASH_STORAGE_INTERNALS.init(BlockingMutex::new(
         hardware_peripherals::EspStorageInternals::new(
             FlashStorage::new(peripherals.FLASH),
             stolen_cpu_control,
-        ))
-    );
+        ),
+    ));
 
-    let mut config_ring_buffer = RingBuffer::<DeviceConfig, EmptyMetadata, hardware_peripherals::EspStorage, esp_storage::FlashStorageError>::new(
+    let mut config_ring_buffer = RingBuffer::<
+        DeviceConfig,
+        EmptyMetadata,
+        hardware_peripherals::EspStorage,
+        esp_storage::FlashStorageError,
+    >::new(
         lib::storage::CONFIGS_START_ADDRESS,
         lib::storage::CONFIGS_END_ADDRESS,
         hardware_peripherals::EspStorage::new(flash_storage_internals),
-    ).expect("config partition addresses must be page-aligned");
+    )
+    .expect("config partition addresses must be page-aligned");
     info!("Ring buffer instantiated");
 
-    let log_ring_buffer = lib::logging::LogRingBuffer::<hardware_peripherals::EspStorage, esp_storage::FlashStorageError>::new(
+    let log_ring_buffer = lib::logging::LogRingBuffer::<
+        hardware_peripherals::EspStorage,
+        esp_storage::FlashStorageError,
+    >::new(
         lib::storage::LOGS_START_ADDRESS,
         lib::storage::LOGS_END_ADDRESS,
         hardware_peripherals::EspStorage::new(flash_storage_internals),
-    ).expect("log partition addresses must be page-aligned");
+    )
+    .expect("log partition addresses must be page-aligned");
     let log_logger = lib::logging::RingBufferLogger::new(log_ring_buffer);
     info!("Log ring buffer instantiated");
 
     match config_ring_buffer.read_latest_record() {
-        Ok(None) => {},
+        Ok(None) => {}
         Ok(Some((config, _))) => {
             log::info!("Read config from flash storage: {:?}", config);
             lib::storage::set_device_config(config).await;
-        },
+        }
         Err(_) => {
             panic!("Failed to read latest config from flash storage")
         }
@@ -313,20 +325,24 @@ async fn main(spawner: Spawner) {
     ledc.set_global_slow_clock(LSGlobalClkSource::APBClk);
 
     let mut lstimer0 = ledc.timer::<LowSpeed>(timer::Number::Timer0);
-    lstimer0.configure(timer::config::Config {
-        duty: timer::config::Duty::Duty2Bit,
-        clock_source: timer::LSClockSource::APBClk,
-        frequency: Rate::from_hz(80_000_000 / 8),
-    }).unwrap();
+    lstimer0
+        .configure(timer::config::Config {
+            duty: timer::config::Duty::Duty2Bit,
+            clock_source: timer::LSClockSource::APBClk,
+            frequency: Rate::from_hz(80_000_000 / 8),
+        })
+        .unwrap();
 
     let lstimer0_static = LSTIMER0.init(lstimer0);
 
     let mut adc_ledc_channel = ledc.channel::<LowSpeed>(channel::Number::Channel0, adc_clock_pin);
-    adc_ledc_channel.configure(channel::config::Config {
-        timer: lstimer0_static,
-        duty_pct: 50,
-        drive_mode: esp_hal::gpio::DriveMode::PushPull,
-    }).unwrap();
+    adc_ledc_channel
+        .configure(channel::config::Config {
+            timer: lstimer0_static,
+            duty_pct: 50,
+            drive_mode: esp_hal::gpio::DriveMode::PushPull,
+        })
+        .unwrap();
 
     let rmt = Rmt::new(peripherals.RMT, freq).unwrap().into_async();
 
@@ -340,7 +356,7 @@ async fn main(spawner: Spawner) {
                 .with_filter_threshold(0)
                 // During normal functionality, the AMC3336 can only emit
                 // a max of 127 pulses of the same value in a row.
-                .with_idle_threshold(130)
+                .with_idle_threshold(130),
         )
         .unwrap();
 
@@ -376,16 +392,15 @@ async fn main(spawner: Spawner) {
         mcp_current_sense_mux_a_pin,
         mcp_current_sense_mux_b_pin,
         relay_pin,
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
     info!("Pump controller initialized");
 
     let sensor_controller = SensorController::new(sensors_raw);
     info!("Sensor controller initialized");
 
-    let tc = EspTreatmentController::initialize(
-        pump_controller,
-        sensor_controller,
-    );
+    let tc = EspTreatmentController::initialize(pump_controller, sensor_controller);
     info!("EspTreatmentController initialized");
 
     let esp_peripherals_mutex = ESP_PERIPHERALS_MUTEX.init(Mutex::new(tc));
@@ -396,25 +411,40 @@ async fn main(spawner: Spawner) {
     let hardware_touch_i2c = I2cDevice::new(shared_i2c_bus);
 
     spawner.spawn(tasks::log_drain(log_logger)).unwrap();
-    spawner.spawn(tasks::read_touch_input(
-        hardware_touch_i2c,
-        Input::new(touch_interrupt_pin, InputConfig::default().with_pull(Pull::Up)),
-        WINDOW_EVENT_CHANNEL.sender(),
-        Output::new(touch_reset_pin, Level::Low, OutputConfig::default()),
-    )).unwrap();
-    spawner.spawn(tasks::process_ui_update_messages(
-        lib::ui_backend::actions::UI_ACTION_CHANNEL.receiver(),
-        rtc,
-        esp_peripherals_mutex,
-        config_ring_buffer,
-    )).unwrap();
-    spawner.spawn(tasks::outlet_scheduler(esp_peripherals_mutex)).unwrap();
-    spawner.spawn(tasks::read_and_dose(esp_peripherals_mutex)).unwrap();
-    spawner.spawn(tasks::monitor_pump_current(esp_peripherals_mutex)).unwrap();
-    spawner.spawn(tasks::fill_reservoir(
-        Input::new(float_sensor_pin, InputConfig::default().with_pull(Pull::Up)),
-        esp_peripherals_mutex,
-    )).unwrap();
+    spawner
+        .spawn(tasks::read_touch_input(
+            hardware_touch_i2c,
+            Input::new(
+                touch_interrupt_pin,
+                InputConfig::default().with_pull(Pull::Up),
+            ),
+            WINDOW_EVENT_CHANNEL.sender(),
+            Output::new(touch_reset_pin, Level::Low, OutputConfig::default()),
+        ))
+        .unwrap();
+    spawner
+        .spawn(tasks::process_ui_update_messages(
+            lib::ui_backend::actions::UI_ACTION_CHANNEL.receiver(),
+            rtc,
+            esp_peripherals_mutex,
+            config_ring_buffer,
+        ))
+        .unwrap();
+    spawner
+        .spawn(tasks::outlet_scheduler(esp_peripherals_mutex))
+        .unwrap();
+    spawner
+        .spawn(tasks::read_and_dose(esp_peripherals_mutex))
+        .unwrap();
+    spawner
+        .spawn(tasks::monitor_pump_current(esp_peripherals_mutex))
+        .unwrap();
+    spawner
+        .spawn(tasks::fill_reservoir(
+            Input::new(float_sensor_pin, InputConfig::default().with_pull(Pull::Up)),
+            esp_peripherals_mutex,
+        ))
+        .unwrap();
 
     loop {
         let _stats: esp_alloc::HeapStats = esp_alloc::HEAP.stats();

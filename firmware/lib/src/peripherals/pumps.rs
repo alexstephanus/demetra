@@ -9,7 +9,10 @@ use core::marker::PhantomData;
 use slint::SharedString;
 
 use ads1x1x::{
-    Ads1x1x, TargetAddr, channel, ic::{Ads1015, Resolution12Bit}, mode::OneShot,
+    channel,
+    ic::{Ads1015, Resolution12Bit},
+    mode::OneShot,
+    Ads1x1x, TargetAddr,
 };
 
 use embassy_time::Timer;
@@ -17,7 +20,7 @@ use thiserror::Error;
 
 use crate::{
     config::calibration::DosingPumpCalibration,
-    ui_types::{Outlet, DosingPump, Pump, Status, UiTreatmentSolution, TreatmentSolutionType},
+    ui_types::{DosingPump, Outlet, Pump, Status, TreatmentSolutionType, UiTreatmentSolution},
 };
 
 #[allow(async_fn_in_trait)]
@@ -30,8 +33,6 @@ pub trait PumpController {
     fn enable_relay(&mut self);
     fn kill_relay(&mut self);
 }
-
-
 
 pub const CURRENT_CUTOFF: f32 = 0.05;
 
@@ -73,7 +74,6 @@ impl DosingPump {
         }
     }
 }
-
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct DosingPumpState {
@@ -170,9 +170,9 @@ impl DosingPumpStateList {
     }
 
     pub fn get_orp_pump(&self) -> Option<&DosingPumpState> {
-        self.dosing_pumps
-            .iter()
-            .find(|pump| pump.treatment_solution.solution_type == TreatmentSolutionType::OrpTreatment)
+        self.dosing_pumps.iter().find(|pump| {
+            pump.treatment_solution.solution_type == TreatmentSolutionType::OrpTreatment
+        })
     }
 
     pub fn get_dosing_pump_state(&self, pump: DosingPump) -> DosingPumpState {
@@ -195,13 +195,13 @@ pub struct HardwarePumpController<'a, DosePin, OutletPin, I2c, MuxPin, RelayPin>
 }
 
 impl<
-    'a,
-    DosePin: embedded_hal::digital::StatefulOutputPin,
-    OutletPin: embedded_hal::digital::StatefulOutputPin,
-    I2c: embedded_hal::i2c::I2c,
-    MuxPin: embedded_hal::digital::OutputPin,
-    RelayPin: embedded_hal::digital::OutputPin<Error = core::convert::Infallible>,
-> HardwarePumpController<'a, DosePin, OutletPin, I2c, MuxPin, RelayPin>
+        'a,
+        DosePin: embedded_hal::digital::StatefulOutputPin,
+        OutletPin: embedded_hal::digital::StatefulOutputPin,
+        I2c: embedded_hal::i2c::I2c,
+        MuxPin: embedded_hal::digital::OutputPin,
+        RelayPin: embedded_hal::digital::OutputPin<Error = core::convert::Infallible>,
+    > HardwarePumpController<'a, DosePin, OutletPin, I2c, MuxPin, RelayPin>
 {
     pub async fn new(
         dose_pins: [DosePin; 6],
@@ -211,15 +211,13 @@ impl<
         current_sense_mux_b: MuxPin,
         relay_pin: RelayPin,
     ) -> Result<Self, PumpError> {
-        let mut current_sense_adc = Ads1x1x::new_ads1015(
-            current_sense_adc_i2c,
-            TargetAddr::Gnd,
-         );
+        let mut current_sense_adc = Ads1x1x::new_ads1015(current_sense_adc_i2c, TargetAddr::Gnd);
 
         current_sense_adc
             .set_data_rate(ads1x1x::DataRate12Bit::Sps3300)
             .map_err(|_| PumpError::HardwareCommunication)?;
-        current_sense_adc.set_full_scale_range(ads1x1x::FullScaleRange::Within2_048V)
+        current_sense_adc
+            .set_full_scale_range(ads1x1x::FullScaleRange::Within2_048V)
             .map_err(|_| PumpError::HardwareCommunication)?;
 
         Ok(Self {
@@ -235,10 +233,12 @@ impl<
 
     pub async fn turn_off(&mut self) -> Result<(), PumpError> {
         for pin in &mut self.dose_pins {
-            pin.set_low().map_err(|_| PumpError::HardwareCommunication)?;
+            pin.set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?;
         }
         for pin in &mut self.outlet_pins {
-            pin.set_low().map_err(|_| PumpError::HardwareCommunication)?;
+            pin.set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?;
         }
         crate::ui_backend::state::clear_all_pump_states().await;
         Ok(())
@@ -246,16 +246,36 @@ impl<
 
     async fn _enable_pump(&mut self, pump: &Pump) -> Result<(), PumpError> {
         match pump {
-            Pump::Dose(DosingPump::DoseOne) => self.dose_pins[0].set_high().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Dose(DosingPump::DoseTwo) => self.dose_pins[1].set_high().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Dose(DosingPump::DoseThree) => self.dose_pins[2].set_high().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Dose(DosingPump::DoseFour) => self.dose_pins[3].set_high().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Dose(DosingPump::DoseFive) => self.dose_pins[4].set_high().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Dose(DosingPump::DoseSix) => self.dose_pins[5].set_high().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Cfg(Outlet::One) => self.outlet_pins[0].set_high().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Cfg(Outlet::Two) => self.outlet_pins[1].set_high().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Cfg(Outlet::Three) => self.outlet_pins[2].set_high().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Cfg(Outlet::Four) => self.outlet_pins[3].set_high().map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseOne) => self.dose_pins[0]
+                .set_high()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseTwo) => self.dose_pins[1]
+                .set_high()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseThree) => self.dose_pins[2]
+                .set_high()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseFour) => self.dose_pins[3]
+                .set_high()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseFive) => self.dose_pins[4]
+                .set_high()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseSix) => self.dose_pins[5]
+                .set_high()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Cfg(Outlet::One) => self.outlet_pins[0]
+                .set_high()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Cfg(Outlet::Two) => self.outlet_pins[1]
+                .set_high()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Cfg(Outlet::Three) => self.outlet_pins[2]
+                .set_high()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Cfg(Outlet::Four) => self.outlet_pins[3]
+                .set_high()
+                .map_err(|_| PumpError::HardwareCommunication)?,
         }
         crate::ui_backend::state::set_pump_active(pump, true).await;
         Ok(())
@@ -263,16 +283,36 @@ impl<
 
     async fn _disable_pump(&mut self, pump: &Pump) -> Result<(), PumpError> {
         match pump {
-            Pump::Dose(DosingPump::DoseOne) => self.dose_pins[0].set_low().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Dose(DosingPump::DoseTwo) => self.dose_pins[1].set_low().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Dose(DosingPump::DoseThree) => self.dose_pins[2].set_low().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Dose(DosingPump::DoseFour) => self.dose_pins[3].set_low().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Dose(DosingPump::DoseFive) => self.dose_pins[4].set_low().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Dose(DosingPump::DoseSix) => self.dose_pins[5].set_low().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Cfg(Outlet::One) => self.outlet_pins[0].set_low().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Cfg(Outlet::Two) => self.outlet_pins[1].set_low().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Cfg(Outlet::Three) => self.outlet_pins[2].set_low().map_err(|_| PumpError::HardwareCommunication)?,
-            Pump::Cfg(Outlet::Four) => self.outlet_pins[3].set_low().map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseOne) => self.dose_pins[0]
+                .set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseTwo) => self.dose_pins[1]
+                .set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseThree) => self.dose_pins[2]
+                .set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseFour) => self.dose_pins[3]
+                .set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseFive) => self.dose_pins[4]
+                .set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Dose(DosingPump::DoseSix) => self.dose_pins[5]
+                .set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Cfg(Outlet::One) => self.outlet_pins[0]
+                .set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Cfg(Outlet::Two) => self.outlet_pins[1]
+                .set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Cfg(Outlet::Three) => self.outlet_pins[2]
+                .set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?,
+            Pump::Cfg(Outlet::Four) => self.outlet_pins[3]
+                .set_low()
+                .map_err(|_| PumpError::HardwareCommunication)?,
         }
         crate::ui_backend::state::set_pump_active(pump, false).await;
         Ok(())
@@ -286,26 +326,45 @@ impl<
     fn select_current_mux(&mut self, outlet: &Outlet) -> Result<(), PumpError> {
         match outlet {
             Outlet::One => {
-                self.current_sense_mux_a.set_high().map_err(|_| PumpError::HardwareCommunication)?;
-                self.current_sense_mux_b.set_high().map_err(|_| PumpError::HardwareCommunication)?;
+                self.current_sense_mux_a
+                    .set_high()
+                    .map_err(|_| PumpError::HardwareCommunication)?;
+                self.current_sense_mux_b
+                    .set_high()
+                    .map_err(|_| PumpError::HardwareCommunication)?;
             }
             Outlet::Two => {
-                self.current_sense_mux_a.set_high().map_err(|_| PumpError::HardwareCommunication)?;
-                self.current_sense_mux_b.set_low().map_err(|_| PumpError::HardwareCommunication)?;
+                self.current_sense_mux_a
+                    .set_high()
+                    .map_err(|_| PumpError::HardwareCommunication)?;
+                self.current_sense_mux_b
+                    .set_low()
+                    .map_err(|_| PumpError::HardwareCommunication)?;
             }
             Outlet::Three => {
-                self.current_sense_mux_a.set_low().map_err(|_| PumpError::HardwareCommunication)?;
-                self.current_sense_mux_b.set_high().map_err(|_| PumpError::HardwareCommunication)?;
+                self.current_sense_mux_a
+                    .set_low()
+                    .map_err(|_| PumpError::HardwareCommunication)?;
+                self.current_sense_mux_b
+                    .set_high()
+                    .map_err(|_| PumpError::HardwareCommunication)?;
             }
             Outlet::Four => {
-                self.current_sense_mux_a.set_low().map_err(|_| PumpError::HardwareCommunication)?;
-                self.current_sense_mux_b.set_low().map_err(|_| PumpError::HardwareCommunication)?;
+                self.current_sense_mux_a
+                    .set_low()
+                    .map_err(|_| PumpError::HardwareCommunication)?;
+                self.current_sense_mux_b
+                    .set_low()
+                    .map_err(|_| PumpError::HardwareCommunication)?;
             }
         }
         Ok(())
     }
 
-    async fn _read_current_raw(&mut self, pump: &Pump) -> Result<i16, nb::Error<ads1x1x::Error<<I2c as embedded_hal::i2c::ErrorType>::Error>>> {
+    async fn _read_current_raw(
+        &mut self,
+        pump: &Pump,
+    ) -> Result<i16, nb::Error<ads1x1x::Error<<I2c as embedded_hal::i2c::ErrorType>::Error>>> {
         match pump {
             Pump::Dose(_) => self.current_sense_adc.read(channel::DifferentialA2A3),
             Pump::Cfg(_) => self.current_sense_adc.read(channel::DifferentialA0A1),
@@ -335,17 +394,16 @@ impl<
         };
         Ok(self.convert_12_bit_result_to_current(adc_result))
     }
-
 }
 
-impl<'a,
-    DosePin: embedded_hal::digital::StatefulOutputPin,
-    OutletPin: embedded_hal::digital::StatefulOutputPin,
-    I2c: embedded_hal::i2c::I2c,
-    MuxPin: embedded_hal::digital::OutputPin,
-    RelayPin: embedded_hal::digital::OutputPin<Error = core::convert::Infallible>,
-> PumpController
-    for HardwarePumpController<'a, DosePin, OutletPin, I2c, MuxPin, RelayPin>
+impl<
+        'a,
+        DosePin: embedded_hal::digital::StatefulOutputPin,
+        OutletPin: embedded_hal::digital::StatefulOutputPin,
+        I2c: embedded_hal::i2c::I2c,
+        MuxPin: embedded_hal::digital::OutputPin,
+        RelayPin: embedded_hal::digital::OutputPin<Error = core::convert::Infallible>,
+    > PumpController for HardwarePumpController<'a, DosePin, OutletPin, I2c, MuxPin, RelayPin>
 {
     async fn enable_pump(&mut self, pump: &Pump) -> Result<(), PumpError> {
         self._enable_pump(pump).await
@@ -365,16 +423,36 @@ impl<'a,
 
     fn is_pump_enabled(&mut self, pump: &Pump) -> Result<bool, PumpError> {
         match pump {
-            Pump::Dose(DosingPump::DoseOne) => self.dose_pins[0].is_set_high().map_err(|_| PumpError::HardwareCommunication),
-            Pump::Dose(DosingPump::DoseTwo) => self.dose_pins[1].is_set_high().map_err(|_| PumpError::HardwareCommunication),
-            Pump::Dose(DosingPump::DoseThree) => self.dose_pins[2].is_set_high().map_err(|_| PumpError::HardwareCommunication),
-            Pump::Dose(DosingPump::DoseFour) => self.dose_pins[3].is_set_high().map_err(|_| PumpError::HardwareCommunication),
-            Pump::Dose(DosingPump::DoseFive) => self.dose_pins[4].is_set_high().map_err(|_| PumpError::HardwareCommunication),
-            Pump::Dose(DosingPump::DoseSix) => self.dose_pins[5].is_set_high().map_err(|_| PumpError::HardwareCommunication),
-            Pump::Cfg(Outlet::One) => self.outlet_pins[0].is_set_high().map_err(|_| PumpError::HardwareCommunication),
-            Pump::Cfg(Outlet::Two) => self.outlet_pins[1].is_set_high().map_err(|_| PumpError::HardwareCommunication),
-            Pump::Cfg(Outlet::Three) => self.outlet_pins[2].is_set_high().map_err(|_| PumpError::HardwareCommunication),
-            Pump::Cfg(Outlet::Four) => self.outlet_pins[3].is_set_high().map_err(|_| PumpError::HardwareCommunication),
+            Pump::Dose(DosingPump::DoseOne) => self.dose_pins[0]
+                .is_set_high()
+                .map_err(|_| PumpError::HardwareCommunication),
+            Pump::Dose(DosingPump::DoseTwo) => self.dose_pins[1]
+                .is_set_high()
+                .map_err(|_| PumpError::HardwareCommunication),
+            Pump::Dose(DosingPump::DoseThree) => self.dose_pins[2]
+                .is_set_high()
+                .map_err(|_| PumpError::HardwareCommunication),
+            Pump::Dose(DosingPump::DoseFour) => self.dose_pins[3]
+                .is_set_high()
+                .map_err(|_| PumpError::HardwareCommunication),
+            Pump::Dose(DosingPump::DoseFive) => self.dose_pins[4]
+                .is_set_high()
+                .map_err(|_| PumpError::HardwareCommunication),
+            Pump::Dose(DosingPump::DoseSix) => self.dose_pins[5]
+                .is_set_high()
+                .map_err(|_| PumpError::HardwareCommunication),
+            Pump::Cfg(Outlet::One) => self.outlet_pins[0]
+                .is_set_high()
+                .map_err(|_| PumpError::HardwareCommunication),
+            Pump::Cfg(Outlet::Two) => self.outlet_pins[1]
+                .is_set_high()
+                .map_err(|_| PumpError::HardwareCommunication),
+            Pump::Cfg(Outlet::Three) => self.outlet_pins[2]
+                .is_set_high()
+                .map_err(|_| PumpError::HardwareCommunication),
+            Pump::Cfg(Outlet::Four) => self.outlet_pins[3]
+                .is_set_high()
+                .map_err(|_| PumpError::HardwareCommunication),
         }
     }
 

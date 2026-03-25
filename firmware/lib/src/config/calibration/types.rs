@@ -126,7 +126,10 @@ mod tests {
         let range = NumericRange::new(0.0, 100.0);
         // margin 0.1 → inner band is 10..90
         assert_eq!(range.position_with_margin(5.0, 0.1), RangePosition::Low);
-        assert_eq!(range.position_with_margin(50.0, 0.1), RangePosition::Settled);
+        assert_eq!(
+            range.position_with_margin(50.0, 0.1),
+            RangePosition::Settled
+        );
         assert_eq!(range.position_with_margin(95.0, 0.1), RangePosition::High);
     }
 

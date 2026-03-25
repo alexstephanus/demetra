@@ -1,14 +1,7 @@
-
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
-    channel::Sender,
-};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Sender};
 
 use lib::ui_backend::ui_runner::{
-    DISPLAY_HEIGHT,
-    DISPLAY_WIDTH,
-    WINDOW_EVENT_CHANNEL_SIZE,
-    DisplayPixels,
+    DisplayPixels, DISPLAY_HEIGHT, DISPLAY_WIDTH, WINDOW_EVENT_CHANNEL_SIZE,
 };
 
 fn get_scale_factor() -> f32 {
@@ -19,30 +12,27 @@ fn get_scale_factor() -> f32 {
 }
 
 use slint::{
-    PlatformError,
     platform::{
-        software_renderer::{
-            MinimalSoftwareWindow, PhysicalRegion, Rgb565Pixel,
-        },
-        Platform, PointerEventButton, WindowAdapter, WindowEvent
-    }
+        software_renderer::{MinimalSoftwareWindow, PhysicalRegion, Rgb565Pixel},
+        Platform, PointerEventButton, WindowAdapter, WindowEvent,
+    },
+    PlatformError,
 };
 
 use sdl2::{
-    EventPump,
-    event::{Event},
-    keyboard::Keycode,
-    mouse::MouseButton,
-    pixels::PixelFormatEnum,
-    rect::Rect,
-    render::Canvas,
-    video::Window,
+    event::Event, keyboard::Keycode, mouse::MouseButton, pixels::PixelFormatEnum, rect::Rect,
+    render::Canvas, video::Window, EventPump,
 };
 
 use std::rc::Rc;
 
 pub fn create_sdl2_renderer(
-    window_event_sender: Sender<'static, CriticalSectionRawMutex, WindowEvent, WINDOW_EVENT_CHANNEL_SIZE>,
+    window_event_sender: Sender<
+        'static,
+        CriticalSectionRawMutex,
+        WindowEvent,
+        WINDOW_EVENT_CHANNEL_SIZE,
+    >,
 ) -> (Sdl2Renderer, Sdl2WindowEventDispatcher) {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -72,39 +62,42 @@ pub struct Sdl2Renderer {
 }
 
 impl Sdl2Renderer {
-    fn new(
-        canvas: Canvas<Window>,
-    ) -> Self {
-        Self {
-            canvas,
-        }
+    fn new(canvas: Canvas<Window>) -> Self {
+        Self { canvas }
     }
 }
 
 impl DisplayPixels for Sdl2Renderer {
     async fn draw_pixels(&mut self, pixels: &mut [Rgb565Pixel], _redraw_region: PhysicalRegion) {
         let texture_creator = self.canvas.texture_creator();
-        let mut texture = texture_creator.create_texture_streaming(
-            PixelFormatEnum::RGB565,
-            DISPLAY_WIDTH as _,
-            DISPLAY_HEIGHT as _,
-        ).unwrap();
+        let mut texture = texture_creator
+            .create_texture_streaming(
+                PixelFormatEnum::RGB565,
+                DISPLAY_WIDTH as _,
+                DISPLAY_HEIGHT as _,
+            )
+            .unwrap();
 
-        texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
-            let pixels_ptr = pixels.as_ptr() as *const u8;
-            let pixels_slice = unsafe { std::slice::from_raw_parts(pixels_ptr, pixels.len() * 2) }; 
-            buffer.copy_from_slice(pixels_slice);
-        }).unwrap();
-        
-        self.canvas.copy_ex(
-            &texture,
-            None,
-            Some(Rect::new(0, 0, DISPLAY_WIDTH as _, DISPLAY_HEIGHT as _)),
-            0.0,
-            None,
-            false,
-            false,
-        ).unwrap();
+        texture
+            .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
+                let pixels_ptr = pixels.as_ptr() as *const u8;
+                let pixels_slice =
+                    unsafe { std::slice::from_raw_parts(pixels_ptr, pixels.len() * 2) };
+                buffer.copy_from_slice(pixels_slice);
+            })
+            .unwrap();
+
+        self.canvas
+            .copy_ex(
+                &texture,
+                None,
+                Some(Rect::new(0, 0, DISPLAY_WIDTH as _, DISPLAY_HEIGHT as _)),
+                0.0,
+                None,
+                false,
+                false,
+            )
+            .unwrap();
         self.canvas.present();
         tokio::time::sleep(tokio::time::Duration::from_millis(16)).await;
     }
@@ -112,13 +105,19 @@ impl DisplayPixels for Sdl2Renderer {
 
 pub struct Sdl2WindowEventDispatcher {
     event_pump: EventPump,
-    window_event_sender: Sender<'static, CriticalSectionRawMutex, WindowEvent, WINDOW_EVENT_CHANNEL_SIZE>,
+    window_event_sender:
+        Sender<'static, CriticalSectionRawMutex, WindowEvent, WINDOW_EVENT_CHANNEL_SIZE>,
 }
 
 impl Sdl2WindowEventDispatcher {
     pub fn new(
         event_pump: EventPump,
-        window_event_sender: Sender<'static, CriticalSectionRawMutex, WindowEvent, WINDOW_EVENT_CHANNEL_SIZE>,
+        window_event_sender: Sender<
+            'static,
+            CriticalSectionRawMutex,
+            WindowEvent,
+            WINDOW_EVENT_CHANNEL_SIZE,
+        >,
     ) -> Self {
         Self {
             event_pump,
@@ -180,7 +179,10 @@ impl Sdl2WindowEventDispatcher {
                         self.window_event_sender.send(event).await;
                     }
                 }
-                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => {
                     println!("Escape key pressed - exiting simulation...");
                     std::process::exit(0);
                 }

@@ -62,47 +62,57 @@ pub struct LogRequest {
 }
 
 pub const LOG_CHANNEL_SIZE: usize = 16;
-pub static LOG_CHANNEL: Channel<CriticalSectionRawMutex, LogRequest, LOG_CHANNEL_SIZE> = Channel::new();
+pub static LOG_CHANNEL: Channel<CriticalSectionRawMutex, LogRequest, LOG_CHANNEL_SIZE> =
+    Channel::new();
 
 pub fn flash_log_error(error: &LoggableError) {
     let message = format!("{}", error);
     log::error!("{}", message);
-    if LOG_CHANNEL.try_send(LogRequest {
-        message,
-        micros: crate::state::current_micros(),
-        level: LogLevel::Error,
-        category: error.log_category(),
-        error_type: Some(error.error_type()),
-        context: None,
-    }).is_err() {
+    if LOG_CHANNEL
+        .try_send(LogRequest {
+            message,
+            micros: crate::state::current_micros(),
+            level: LogLevel::Error,
+            category: error.log_category(),
+            error_type: Some(error.error_type()),
+            context: None,
+        })
+        .is_err()
+    {
         log::warn!("Log channel full, flash error entry dropped");
     }
 }
 
 pub fn flash_log_warn(message: String, category: LogCategory) {
     log::warn!("{}", message);
-    if LOG_CHANNEL.try_send(LogRequest {
-        message,
-        micros: crate::state::current_micros(),
-        level: LogLevel::Warn,
-        category,
-        error_type: None,
-        context: None,
-    }).is_err() {
+    if LOG_CHANNEL
+        .try_send(LogRequest {
+            message,
+            micros: crate::state::current_micros(),
+            level: LogLevel::Warn,
+            category,
+            error_type: None,
+            context: None,
+        })
+        .is_err()
+    {
         log::warn!("Log channel full, flash warn entry dropped");
     }
 }
 
 pub fn flash_log_info(message: String, category: LogCategory) {
     log::info!("{}", message);
-    if LOG_CHANNEL.try_send(LogRequest {
-        message,
-        micros: crate::state::current_micros(),
-        level: LogLevel::Info,
-        category,
-        error_type: None,
-        context: None,
-    }).is_err() {
+    if LOG_CHANNEL
+        .try_send(LogRequest {
+            message,
+            micros: crate::state::current_micros(),
+            level: LogLevel::Info,
+            category,
+            error_type: None,
+            context: None,
+        })
+        .is_err()
+    {
         log::warn!("Log channel full, flash info entry dropped");
     }
 }
@@ -114,10 +124,26 @@ pub fn flash_log_sensor_readings(readings: &crate::tasks::SensorReadings) {
     let mut parts: Vec<String> = Vec::new();
 
     let values: [(&str, SensorType, Option<f32>); 4] = [
-        ("temperature", SensorType::Temperature, readings.temperature.map(|t| t.celsius())),
-        ("ec", SensorType::Conductivity, readings.ec.map(|c| c.us_per_cm())),
-        ("ph", SensorType::Ph, readings.ph.as_ref().map(|p| p.ph_value)),
-        ("orp", SensorType::Orp, readings.orp.as_ref().map(|o| o.voltage.mv())),
+        (
+            "temperature",
+            SensorType::Temperature,
+            readings.temperature.map(|t| t.celsius()),
+        ),
+        (
+            "ec",
+            SensorType::Conductivity,
+            readings.ec.map(|c| c.us_per_cm()),
+        ),
+        (
+            "ph",
+            SensorType::Ph,
+            readings.ph.as_ref().map(|p| p.ph_value),
+        ),
+        (
+            "orp",
+            SensorType::Orp,
+            readings.orp.as_ref().map(|o| o.voltage.mv()),
+        ),
     ];
 
     let micros = crate::state::current_micros();
@@ -140,14 +166,17 @@ pub fn flash_log_sensor_readings(readings: &crate::tasks::SensorReadings) {
     let message = parts.join(", ");
     log::info!("Sensors: {}", message);
 
-    if LOG_CHANNEL.try_send(LogRequest {
-        message,
-        micros,
-        level: LogLevel::Info,
-        category: LogCategory::Sensor,
-        error_type: None,
-        context: Some(context),
-    }).is_err() {
+    if LOG_CHANNEL
+        .try_send(LogRequest {
+            message,
+            micros,
+            level: LogLevel::Info,
+            category: LogCategory::Sensor,
+            error_type: None,
+            context: Some(context),
+        })
+        .is_err()
+    {
         log::warn!("Log channel full, sensor readings entry dropped");
     }
 }
@@ -161,13 +190,16 @@ pub fn process_log_request<L: Logger>(request: LogRequest, logger: &mut L) {
     } else {
         None
     };
-    let timestamp = chrono::DateTime::<chrono::Utc>::from_timestamp(timestamp_secs, 0)
-        .unwrap_or_default();
+    let timestamp =
+        chrono::DateTime::<chrono::Utc>::from_timestamp(timestamp_secs, 0).unwrap_or_default();
     let entry = match request.context {
         Some(ctx) => LogEntry::with_context(request.message, timestamp, ctx),
         None => LogEntry::new(request.message, timestamp),
     };
-    if logger.log(entry, level, category, request.error_type).is_err() {
+    if logger
+        .log(entry, level, category, request.error_type)
+        .is_err()
+    {
         log::error!("Failed to write log entry");
     }
     if let Some(msg) = error_message {
@@ -617,14 +649,16 @@ mod tests {
     #[test]
     fn test_ring_buffer_logger_creation() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         RingBufferLogger::new(ring_buffer);
     }
 
     #[test]
     fn test_logger_info() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let mut logger = RingBufferLogger::new(ring_buffer);
 
         let result = logger.info(
@@ -638,7 +672,8 @@ mod tests {
     #[test]
     fn test_logger_warn() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let mut logger = RingBufferLogger::new(ring_buffer);
 
         let result = logger.warn(
@@ -652,7 +687,8 @@ mod tests {
     #[test]
     fn test_logger_error() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let mut logger = RingBufferLogger::new(ring_buffer);
 
         let result = logger.error(
@@ -667,7 +703,8 @@ mod tests {
     #[test]
     fn test_logger_debug() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let mut logger = RingBufferLogger::new(ring_buffer);
 
         let result = logger.debug(
@@ -681,7 +718,8 @@ mod tests {
     #[test]
     fn test_logger_with_context() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let mut logger = RingBufferLogger::new(ring_buffer);
 
         let mut context = serde_json::Map::new();
@@ -702,7 +740,8 @@ mod tests {
     #[test]
     fn test_direct_log_method() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let mut logger = RingBufferLogger::new(ring_buffer);
 
         let entry = LogEntry::new("Direct log test".to_string(), test_timestamp());
@@ -713,7 +752,8 @@ mod tests {
     #[test]
     fn test_logger_default_log_level() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let logger = RingBufferLogger::new(ring_buffer);
         assert_eq!(logger.get_log_level(), LogLevel::Info);
     }
@@ -721,7 +761,8 @@ mod tests {
     #[test]
     fn test_logger_should_log() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let logger = RingBufferLogger::new(ring_buffer);
 
         // Should log at or above the configured level (Info by default)
@@ -734,7 +775,8 @@ mod tests {
     #[test]
     fn test_logger_with_log_level() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let mut logger = RingBufferLogger::with_log_level(ring_buffer, LogLevel::Warn); // Only warn and above
 
         // Should log warn and error
@@ -799,7 +841,8 @@ mod tests {
     #[test]
     fn test_log_query_creation() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let _query = LogQuery::new(ring_buffer);
         // Just testing creation
     }
@@ -807,7 +850,8 @@ mod tests {
     #[test]
     fn test_log_level_update() {
         let storage = MockFlashStorage::new(0, 4096, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer =
+            LogRingBuffer::new(0, 4096, storage).expect("test log addresses must be page-aligned");
         let mut logger = RingBufferLogger::new(ring_buffer);
 
         logger.set_log_level(LogLevel::Debug);
@@ -824,7 +868,9 @@ mod tests {
         let error = LoggableError::Sensor(SensorError::HardwareReadFailure(SensorType::Ph));
         flash_log_error(&error);
 
-        let request = LOG_CHANNEL.try_receive().expect("LOG_CHANNEL should have a message");
+        let request = LOG_CHANNEL
+            .try_receive()
+            .expect("LOG_CHANNEL should have a message");
 
         let storage = MockFlashStorage::new(0, 4096 * 4, None);
         let ring_buffer = LogRingBuffer::new(0, 4096 * 4, storage)
@@ -835,7 +881,10 @@ mod tests {
 
         assert!(crate::ui_backend::state::take_errors_dirty());
         let errors = crate::ui_backend::state::get_recent_errors();
-        assert!(!errors.is_empty(), "Expected at least one error in runtime state");
+        assert!(
+            !errors.is_empty(),
+            "Expected at least one error in runtime state"
+        );
         let last = errors.last().unwrap();
         assert_eq!(last.category, LogCategory::Sensor);
         assert!(
@@ -849,7 +898,8 @@ mod tests {
     #[test]
     fn test_sensor_reading_query() {
         let storage = MockFlashStorage::new(0, 4096 * 4, None);
-        let ring_buffer = LogRingBuffer::new(0, 4096 * 4, storage).expect("test log addresses must be page-aligned");
+        let ring_buffer = LogRingBuffer::new(0, 4096 * 4, storage)
+            .expect("test log addresses must be page-aligned");
         let mut logger = RingBufferLogger::new(ring_buffer);
 
         let ts1 = DateTime::<Utc>::from_timestamp_millis(1000).unwrap();
@@ -858,18 +908,33 @@ mod tests {
 
         let mut ph_ctx1 = serde_json::Map::new();
         ph_ctx1.insert("sensor".into(), serde_json::Value::String("ph".into()));
-        ph_ctx1.insert("value".into(), serde_json::Value::Number(serde_json::Number::from_f64(7.2).unwrap()));
-        logger.info_with_context(String::new(), ts1, ph_ctx1, LogCategory::Sensor).unwrap();
+        ph_ctx1.insert(
+            "value".into(),
+            serde_json::Value::Number(serde_json::Number::from_f64(7.2).unwrap()),
+        );
+        logger
+            .info_with_context(String::new(), ts1, ph_ctx1, LogCategory::Sensor)
+            .unwrap();
 
         let mut ec_ctx = serde_json::Map::new();
         ec_ctx.insert("sensor".into(), serde_json::Value::String("ec".into()));
-        ec_ctx.insert("value".into(), serde_json::Value::Number(serde_json::Number::from_f64(1400.0).unwrap()));
-        logger.info_with_context(String::new(), ts2, ec_ctx, LogCategory::Sensor).unwrap();
+        ec_ctx.insert(
+            "value".into(),
+            serde_json::Value::Number(serde_json::Number::from_f64(1400.0).unwrap()),
+        );
+        logger
+            .info_with_context(String::new(), ts2, ec_ctx, LogCategory::Sensor)
+            .unwrap();
 
         let mut ph_ctx2 = serde_json::Map::new();
         ph_ctx2.insert("sensor".into(), serde_json::Value::String("ph".into()));
-        ph_ctx2.insert("value".into(), serde_json::Value::Number(serde_json::Number::from_f64(6.8).unwrap()));
-        logger.info_with_context(String::new(), ts3, ph_ctx2, LogCategory::Sensor).unwrap();
+        ph_ctx2.insert(
+            "value".into(),
+            serde_json::Value::Number(serde_json::Number::from_f64(6.8).unwrap()),
+        );
+        logger
+            .info_with_context(String::new(), ts3, ph_ctx2, LogCategory::Sensor)
+            .unwrap();
 
         let ph_readings = logger.get_sensor_readings("ph");
         assert_eq!(ph_readings.len(), 2);

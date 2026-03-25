@@ -6,11 +6,9 @@ cfg_if::cfg_if! {
     }
 }
 
-use chrono::{DateTime, Datelike, NaiveTime, Duration, Utc, TimeZone};
+use chrono::{DateTime, Datelike, Duration, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
-
-
 
 /// Bitmask for days of week. Bit 0 = Sunday, Bit 6 = Saturday
 /// Example: 0b0111110 = Monday through Friday
@@ -40,15 +38,37 @@ impl DaysOfWeek {
         (self.0 & (1 << day)) != 0
     }
 
-    pub fn from_bools(sunday: bool, monday: bool, tuesday: bool, wednesday: bool, thursday: bool, friday: bool, saturday: bool) -> Self {
+    pub fn from_bools(
+        sunday: bool,
+        monday: bool,
+        tuesday: bool,
+        wednesday: bool,
+        thursday: bool,
+        friday: bool,
+        saturday: bool,
+    ) -> Self {
         let mut mask = 0u8;
-        if sunday { mask |= Self::SUNDAY; }
-        if monday { mask |= Self::MONDAY; }
-        if tuesday { mask |= Self::TUESDAY; }
-        if wednesday { mask |= Self::WEDNESDAY; }
-        if thursday { mask |= Self::THURSDAY; }
-        if friday { mask |= Self::FRIDAY; }
-        if saturday { mask |= Self::SATURDAY; }
+        if sunday {
+            mask |= Self::SUNDAY;
+        }
+        if monday {
+            mask |= Self::MONDAY;
+        }
+        if tuesday {
+            mask |= Self::TUESDAY;
+        }
+        if wednesday {
+            mask |= Self::WEDNESDAY;
+        }
+        if thursday {
+            mask |= Self::THURSDAY;
+        }
+        if friday {
+            mask |= Self::FRIDAY;
+        }
+        if saturday {
+            mask |= Self::SATURDAY;
+        }
         Self(mask)
     }
 
@@ -125,9 +145,7 @@ pub struct OutletSchedule {
 
 impl OutletSchedule {
     pub const fn new() -> Self {
-        Self {
-            events: Vec::new(),
-        }
+        Self { events: Vec::new() }
     }
 
     pub fn with_events(events: Vec<ScheduledEvent>) -> Self {
@@ -210,7 +228,7 @@ impl ScheduledEvent {
                     .earliest()
                     .unwrap_or_else(|| tz.from_utc_datetime(&naive))
                     .with_timezone(&Utc)
-                }
+            }
         }
     }
 
@@ -282,7 +300,10 @@ pub fn compute_next_schedule_change(
         }
     }
 
-    Some(ScheduledTransitions { at: earliest, outlets })
+    Some(ScheduledTransitions {
+        at: earliest,
+        outlets,
+    })
 }
 
 impl Default for OutletSchedule {
@@ -313,7 +334,9 @@ mod tests {
             NaiveTime::from_hms_opt(6, 0, 0).unwrap(),
             Duration::minutes(30),
         )
-        .with_days(DaysOfWeek::from_bools(false, true, true, true, true, true, false));
+        .with_days(DaysOfWeek::from_bools(
+            false, true, true, true, true, true, false,
+        ));
 
         assert!(event.is_active_on_day(1)); // Monday
         assert!(!event.is_active_on_day(0)); // Sunday
@@ -384,7 +407,9 @@ mod tests {
                 NaiveTime::from_hms_opt(6, 0, 0).unwrap(),
                 Duration::minutes(30),
             )
-            .with_days(DaysOfWeek::from_bools(false, true, true, true, true, true, false)),
+            .with_days(DaysOfWeek::from_bools(
+                false, true, true, true, true, true, false,
+            )),
         );
 
         let during = NaiveTime::from_hms_opt(6, 15, 0).unwrap();
@@ -401,7 +426,9 @@ mod tests {
                 NaiveTime::from_hms_opt(6, 0, 0).unwrap(),
                 Duration::minutes(30),
             )
-            .with_days(DaysOfWeek::from_bools(false, true, true, true, true, true, false)),
+            .with_days(DaysOfWeek::from_bools(
+                false, true, true, true, true, true, false,
+            )),
         );
 
         let serialized = serde_json::to_string(&schedule).unwrap();
@@ -438,8 +465,10 @@ mod tests {
     use chrono::NaiveDate;
 
     fn utc(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> DateTime<Utc> {
-        NaiveDate::from_ymd_opt(year, month, day).unwrap()
-            .and_hms_opt(hour, min, sec).unwrap()
+        NaiveDate::from_ymd_opt(year, month, day)
+            .unwrap()
+            .and_hms_opt(hour, min, sec)
+            .unwrap()
             .and_utc()
     }
 
@@ -556,9 +585,7 @@ mod tests {
         ));
 
         let now = utc(2026, 2, 17, 9, 0, 0);
-        let result = compute_next_schedule_change(
-            now, &[&schedule_a, &schedule_b], UTC,
-        ).unwrap();
+        let result = compute_next_schedule_change(now, &[&schedule_a, &schedule_b], UTC).unwrap();
         assert_eq!(result.at, utc(2026, 2, 17, 10, 0, 0));
         assert_eq!(result.outlets, vec![(1, true)]);
     }
@@ -578,9 +605,7 @@ mod tests {
         ));
 
         let now = utc(2026, 2, 17, 9, 0, 0);
-        let result = compute_next_schedule_change(
-            now, &[&schedule_a, &schedule_b], UTC,
-        ).unwrap();
+        let result = compute_next_schedule_change(now, &[&schedule_a, &schedule_b], UTC).unwrap();
         assert_eq!(result.at, utc(2026, 2, 17, 10, 0, 0));
         assert_eq!(result.outlets, vec![(0, true), (1, true)]);
     }

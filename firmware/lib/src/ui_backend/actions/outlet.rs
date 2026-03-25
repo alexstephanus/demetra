@@ -3,9 +3,9 @@ use embedded_storage::Storage;
 use slint::ComponentHandle;
 
 use crate::{
-    peripherals::{rtc::RealTimeClock, PumpController, SensorReadRaw, Pump},
+    peripherals::{rtc::RealTimeClock, Pump, PumpController, SensorReadRaw},
     storage::update_device_config,
-    ui_types::{MainWindow, Outlet, PumpUiState, UiScheduledRunWindow, OutletMode},
+    ui_types::{MainWindow, Outlet, OutletMode, PumpUiState, UiScheduledRunWindow},
 };
 
 use super::MessageContext;
@@ -17,20 +17,32 @@ pub struct EnableOutlet {
 
 impl EnableOutlet {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_enable_outlet(move |outlet_index| {
-            if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
-                send(EnableOutlet { outlet });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_enable_outlet(move |outlet_index| {
+                if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
+                    send(EnableOutlet { outlet });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.outlets.get_outlet_state_mut(self.outlet).enabled = true;
-        }).await;
+            device_config
+                .outlets
+                .get_outlet_state_mut(self.outlet)
+                .enabled = true;
+        })
+        .await;
         crate::tasks::SCHEDULE_CHANGE_SIGNAL.signal(());
     }
 }
@@ -42,26 +54,42 @@ pub struct DisableOutlet {
 
 impl DisableOutlet {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_disable_outlet(move |outlet_index| {
-            if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
-                send(DisableOutlet { outlet });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_disable_outlet(move |outlet_index| {
+                if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
+                    send(DisableOutlet { outlet });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         {
             let mut tc = ctx.treatment_controller.lock().await;
-            if let Err(e) = tc.pump_controller.disable_pump(&Pump::Cfg(self.outlet)).await {
+            if let Err(e) = tc
+                .pump_controller
+                .disable_pump(&Pump::Cfg(self.outlet))
+                .await
+            {
                 log::error!("Failed to disable outlet {:?}: {:?}", self.outlet, e);
             }
         }
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.outlets.get_outlet_state_mut(self.outlet).enabled = false;
-        }).await;
+            device_config
+                .outlets
+                .get_outlet_state_mut(self.outlet)
+                .enabled = false;
+        })
+        .await;
         crate::tasks::SCHEDULE_CHANGE_SIGNAL.signal(());
     }
 }
@@ -74,20 +102,33 @@ pub struct RenameOutlet {
 
 impl RenameOutlet {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_rename_outlet(move |outlet_index, name| {
-            if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
-                send(RenameOutlet { outlet, new_name: name });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_rename_outlet(move |outlet_index, name| {
+                if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
+                    send(RenameOutlet {
+                        outlet,
+                        new_name: name,
+                    });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.outlets.get_outlet_state_mut(self.outlet).name = Some(self.new_name.clone());
-        }).await;
+            device_config.outlets.get_outlet_state_mut(self.outlet).name =
+                Some(self.new_name.clone());
+        })
+        .await;
     }
 }
 
@@ -99,26 +140,42 @@ pub struct SetOutletMode {
 
 impl SetOutletMode {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_change_outlet_mode(move |outlet_index, outlet_mode| {
-            if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
-                send(SetOutletMode { outlet, outlet_mode });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_change_outlet_mode(move |outlet_index, outlet_mode| {
+                if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
+                    send(SetOutletMode {
+                        outlet,
+                        outlet_mode,
+                    });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         {
             let mut tc = ctx.treatment_controller.lock().await;
-            if let Err(e) = tc.pump_controller.disable_pump(&Pump::Cfg(self.outlet)).await {
+            if let Err(e) = tc
+                .pump_controller
+                .disable_pump(&Pump::Cfg(self.outlet))
+                .await
+            {
                 log::error!("Failed to disable outlet {:?}: {:?}", self.outlet, e);
             }
         }
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
             device_config.outlets.get_outlet_state_mut(self.outlet).mode = self.outlet_mode;
-        }).await;
+        })
+        .await;
         crate::tasks::SCHEDULE_CHANGE_SIGNAL.signal(());
     }
 }
@@ -131,29 +188,56 @@ pub struct RunOutlet {
 
 impl RunOutlet {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_run_outlet_manually(move |outlet_index, duration_seconds| {
-            if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
-                send(RunOutlet { outlet, duration_seconds: duration_seconds as u64 });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_run_outlet_manually(move |outlet_index, duration_seconds| {
+                if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
+                    send(RunOutlet {
+                        outlet,
+                        duration_seconds: duration_seconds as u64,
+                    });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         {
             let mut tc = ctx.treatment_controller.lock().await;
-            if let Err(e) = tc.pump_controller.enable_pump(&Pump::Cfg(self.outlet)).await {
-                log::error!("Failed to enable outlet {:?} for manual run: {:?}", self.outlet, e);
+            if let Err(e) = tc
+                .pump_controller
+                .enable_pump(&Pump::Cfg(self.outlet))
+                .await
+            {
+                log::error!(
+                    "Failed to enable outlet {:?} for manual run: {:?}",
+                    self.outlet,
+                    e
+                );
                 return;
             }
         }
         embassy_time::Timer::after(embassy_time::Duration::from_secs(self.duration_seconds)).await;
         {
             let mut tc = ctx.treatment_controller.lock().await;
-            if let Err(e) = tc.pump_controller.disable_pump(&Pump::Cfg(self.outlet)).await {
-                log::error!("Failed to disable outlet {:?} after manual run: {:?}", self.outlet, e);
+            if let Err(e) = tc
+                .pump_controller
+                .disable_pump(&Pump::Cfg(self.outlet))
+                .await
+            {
+                log::error!(
+                    "Failed to disable outlet {:?} after manual run: {:?}",
+                    self.outlet,
+                    e
+                );
             }
         }
     }
@@ -167,14 +251,22 @@ pub struct AddScheduleWindow {
 
 impl AddScheduleWindow {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_schedule_add_window(move |outlet_index, window| {
-            if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
-                send(AddScheduleWindow { outlet, window });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_schedule_add_window(move |outlet_index, window| {
+                if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
+                    send(AddScheduleWindow { outlet, window });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
@@ -183,10 +275,18 @@ impl AddScheduleWindow {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
             let outlet_config = device_config.outlets.get_outlet_state_mut(self.outlet);
             match ScheduledEvent::try_from(self.window.clone()) {
-                Ok(event) => { outlet_config.schedule.add_event(event); }
-                Err(_) => { log::error!("Invalid schedule window from UI for outlet {:?}, discarding", self.outlet); }
+                Ok(event) => {
+                    outlet_config.schedule.add_event(event);
+                }
+                Err(_) => {
+                    log::error!(
+                        "Invalid schedule window from UI for outlet {:?}, discarding",
+                        self.outlet
+                    );
+                }
             }
-        }).await;
+        })
+        .await;
         crate::tasks::SCHEDULE_CHANGE_SIGNAL.signal(());
     }
 }
@@ -200,14 +300,26 @@ pub struct UpdateScheduleWindow {
 
 impl UpdateScheduleWindow {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_schedule_update_window(move |outlet_index, index, window| {
-            if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
-                send(UpdateScheduleWindow { outlet, index, window });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_schedule_update_window(move |outlet_index, index, window| {
+                if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
+                    send(UpdateScheduleWindow {
+                        outlet,
+                        index,
+                        window,
+                    });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
@@ -220,9 +332,15 @@ impl UpdateScheduleWindow {
                     outlet_config.schedule.remove_event(self.index as usize);
                     outlet_config.schedule.add_event(event);
                 }
-                Err(_) => { log::error!("Invalid updated schedule window from UI for outlet {:?}, discarding", self.outlet); }
+                Err(_) => {
+                    log::error!(
+                        "Invalid updated schedule window from UI for outlet {:?}, discarding",
+                        self.outlet
+                    );
+                }
             }
-        }).await;
+        })
+        .await;
         crate::tasks::SCHEDULE_CHANGE_SIGNAL.signal(());
     }
 }
@@ -235,20 +353,33 @@ pub struct DeleteScheduleWindow {
 
 impl DeleteScheduleWindow {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_schedule_delete_window(move |outlet_index, index| {
-            if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
-                send(DeleteScheduleWindow { outlet, index });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_schedule_delete_window(move |outlet_index, index| {
+                if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
+                    send(DeleteScheduleWindow { outlet, index });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.outlets.get_outlet_state_mut(self.outlet).schedule.remove_event(self.index as usize);
-        }).await;
+            device_config
+                .outlets
+                .get_outlet_state_mut(self.outlet)
+                .schedule
+                .remove_event(self.index as usize);
+        })
+        .await;
         crate::tasks::SCHEDULE_CHANGE_SIGNAL.signal(());
     }
 }
@@ -261,20 +392,35 @@ pub struct SetSolenoidFillTime {
 
 impl SetSolenoidFillTime {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_update_solenoid_fill_time(move |outlet_index, seconds| {
-            if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
-                send(SetSolenoidFillTime { outlet, seconds: seconds as u32 });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_update_solenoid_fill_time(move |outlet_index, seconds| {
+                if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
+                    send(SetSolenoidFillTime {
+                        outlet,
+                        seconds: seconds as u32,
+                    });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.outlets.get_outlet_state_mut(self.outlet).max_fill_seconds = Some(self.seconds);
-        }).await;
+            device_config
+                .outlets
+                .get_outlet_state_mut(self.outlet)
+                .max_fill_seconds = Some(self.seconds);
+        })
+        .await;
     }
 }
 
@@ -286,19 +432,34 @@ pub struct SetStirPumpDuration {
 
 impl SetStirPumpDuration {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_update_stir_duration(move |outlet_index, seconds| {
-            if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
-                send(SetStirPumpDuration { outlet, seconds: seconds as u32 });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_update_stir_duration(move |outlet_index, seconds| {
+                if let Some(outlet) = Outlet::from_int(outlet_index as usize) {
+                    send(SetStirPumpDuration {
+                        outlet,
+                        seconds: seconds as u32,
+                    });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.outlets.get_outlet_state_mut(self.outlet).stir_seconds = Some(self.seconds);
-        }).await;
+            device_config
+                .outlets
+                .get_outlet_state_mut(self.outlet)
+                .stir_seconds = Some(self.seconds);
+        })
+        .await;
     }
 }

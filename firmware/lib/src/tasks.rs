@@ -17,10 +17,10 @@ use crate::{
         device_config::DeviceConfig,
         outlet_schedule::compute_next_schedule_change,
     },
-    peripherals::{dosing, Pump, PumpController, SensorReadRaw, CURRENT_CUTOFF, DosingPump},
+    peripherals::{dosing, DosingPump, Pump, PumpController, SensorReadRaw, CURRENT_CUTOFF},
     storage::get_device_config,
     storage::ring_buffer::EmptyMetadata,
-    ui_types::{Outlet, MainWindow, OutletMode},
+    ui_types::{MainWindow, Outlet, OutletMode},
     units::{Conductivity, Temperature},
 };
 
@@ -51,7 +51,7 @@ pub async fn process_ui_messages<
     >,
     ticks_fn: impl Fn() -> u64,
 ) {
-    use crate::ui_backend::actions::{UI_ACTION_CHANNEL, MessageContext};
+    use crate::ui_backend::actions::{MessageContext, UI_ACTION_CHANNEL};
 
     let ui_message_receiver = UI_ACTION_CHANNEL.receiver();
     loop {
@@ -67,13 +67,10 @@ pub async fn process_ui_messages<
             config_buffer: &mut config_buffer,
         };
         crate::ui_backend::actions::dispatch(message, &mut ctx).await;
-    };
+    }
 }
 
-pub async fn update_clock_task(
-    ui: &MainWindow,
-    ticks_fn: impl Fn() -> u64,
-) {
+pub async fn update_clock_task(ui: &MainWindow, ticks_fn: impl Fn() -> u64) {
     let mut ticker = embassy_time::Ticker::every(embassy_time::Duration::from_secs(1));
     loop {
         ticker.next().await;
@@ -84,22 +81,16 @@ pub async fn update_clock_task(
     }
 }
 
-const SCHEDULABLE_OUTLETS: [Outlet; 4] = [
-    Outlet::One,
-    Outlet::Two,
-    Outlet::Three,
-    Outlet::Four,
-];
+const SCHEDULABLE_OUTLETS: [Outlet; 4] = [Outlet::One, Outlet::Two, Outlet::Three, Outlet::Four];
 
 fn is_schedulable(mode: &OutletMode) -> bool {
-    matches!(mode, OutletMode::FertigationPump | OutletMode::GeneralPurpose)
+    matches!(
+        mode,
+        OutletMode::FertigationPump | OutletMode::GeneralPurpose
+    )
 }
 
-pub async fn outlet_scheduler_task<
-    'a,
-    Sensors: SensorReadRaw,
-    Pumps: PumpController,
->(
+pub async fn outlet_scheduler_task<'a, Sensors: SensorReadRaw, Pumps: PumpController>(
     treatment_controller: &crate::peripherals::TreatmentControllerMutex<'a, Sensors, Pumps>,
     ticks_fn: impl Fn() -> u64,
 ) {
@@ -110,30 +101,32 @@ pub async fn outlet_scheduler_task<
         let now = crate::state::get_system_time(ticks_fn()).await;
 
         let empty_schedule = crate::config::outlet_schedule::OutletSchedule::new();
-        let outlet_states: [crate::peripherals::OutletState; 4] = core::array::from_fn(|i| {
-            config.outlets.get_outlet_state(SCHEDULABLE_OUTLETS[i])
-        });
-        let schedule_refs: [&crate::config::outlet_schedule::OutletSchedule; 4] = core::array::from_fn(|i| {
-            let state = &outlet_states[i];
-            if state.enabled && is_schedulable(&state.mode) {
-                &state.schedule
-            } else {
-                &empty_schedule
-            }
-        });
+        let outlet_states: [crate::peripherals::OutletState; 4] =
+            core::array::from_fn(|i| config.outlets.get_outlet_state(SCHEDULABLE_OUTLETS[i]));
+        let schedule_refs: [&crate::config::outlet_schedule::OutletSchedule; 4] =
+            core::array::from_fn(|i| {
+                let state = &outlet_states[i];
+                if state.enabled && is_schedulable(&state.mode) {
+                    &state.schedule
+                } else {
+                    &empty_schedule
+                }
+            });
 
-        match compute_next_schedule_change(now, &schedule_refs, config.time_display_config.timezone) {
+        match compute_next_schedule_change(now, &schedule_refs, config.time_display_config.timezone)
+        {
             Some(transitions) => {
                 let sleep_duration = transitions.at - now;
                 let sleep_secs = sleep_duration.num_seconds().max(1) as u64;
                 log::info!(
                     "Next schedule transition at {} (in {}s, {} outlet(s))",
-                    transitions.at, sleep_secs, transitions.outlets.len()
+                    transitions.at,
+                    sleep_secs,
+                    transitions.outlets.len()
                 );
 
-                let sleep_future = embassy_time::Timer::after(
-                    embassy_time::Duration::from_secs(sleep_secs),
-                );
+                let sleep_future =
+                    embassy_time::Timer::after(embassy_time::Duration::from_secs(sleep_secs));
                 let signal_future = SCHEDULE_CHANGE_SIGNAL.wait();
 
                 match embassy_futures::select::select(sleep_future, signal_future).await {
@@ -144,11 +137,19 @@ pub async fn outlet_scheduler_task<
                             let pump = Pump::Cfg(outlet);
                             if *turn_on {
                                 if let Err(e) = tc.pump_controller.enable_pump(&pump).await {
-                                    log::error!("Failed to enable outlet {:?} on schedule: {:?}", outlet, e);
+                                    log::error!(
+                                        "Failed to enable outlet {:?} on schedule: {:?}",
+                                        outlet,
+                                        e
+                                    );
                                 }
                             } else {
                                 if let Err(e) = tc.pump_controller.disable_pump(&pump).await {
-                                    log::error!("Failed to disable outlet {:?} on schedule: {:?}", outlet, e);
+                                    log::error!(
+                                        "Failed to disable outlet {:?} on schedule: {:?}",
+                                        outlet,
+                                        e
+                                    );
                                 }
                             }
                         }
@@ -160,9 +161,8 @@ pub async fn outlet_scheduler_task<
             }
             None => {
                 let signal_future = SCHEDULE_CHANGE_SIGNAL.wait();
-                let sleep_future = embassy_time::Timer::after(
-                    embassy_time::Duration::from_secs(3600),
-                );
+                let sleep_future =
+                    embassy_time::Timer::after(embassy_time::Duration::from_secs(3600));
                 embassy_futures::select::select(sleep_future, signal_future).await;
             }
         }
@@ -174,15 +174,13 @@ async fn read_sensors<Sensors: SensorReadRaw>(
     config: &DeviceConfig,
 ) -> SensorReadings {
     let temperature = match (config.temperature.enabled, &config.temperature.beta_value) {
-        (true, Some(beta)) => {
-            match sensor_controller.measure_temperature(*beta).await {
-                Ok(temp) => Some(temp),
-                Err(e) => {
-                    flash_log_error(&LoggableError::from(e));
-                    None
-                }
+        (true, Some(beta)) => match sensor_controller.measure_temperature(*beta).await {
+            Ok(temp) => Some(temp),
+            Err(e) => {
+                flash_log_error(&LoggableError::from(e));
+                None
             }
-        }
+        },
         _ => None,
     };
 
@@ -190,7 +188,10 @@ async fn read_sensors<Sensors: SensorReadRaw>(
 
     let ec = if config.ec.enabled {
         if let Some(ec_cal) = config.ec.calibration.as_ref() {
-            match sensor_controller.measure_conductivity(ec_cal, temp_for_compensation).await {
+            match sensor_controller
+                .measure_conductivity(ec_cal, temp_for_compensation)
+                .await
+            {
                 Ok(m) => Some(m),
                 Err(e) => {
                     flash_log_error(&LoggableError::from(e));
@@ -206,7 +207,10 @@ async fn read_sensors<Sensors: SensorReadRaw>(
 
     let ph = if config.ph.enabled {
         if let Some(ph_cal) = config.ph.calibration.as_ref() {
-            match sensor_controller.measure_ph(ph_cal, temp_for_compensation).await {
+            match sensor_controller
+                .measure_ph(ph_cal, temp_for_compensation)
+                .await
+            {
                 Ok(m) => Some(m),
                 Err(e) => {
                     flash_log_error(&LoggableError::from(e));
@@ -236,7 +240,12 @@ async fn read_sensors<Sensors: SensorReadRaw>(
         None
     };
 
-    SensorReadings { temperature, ec, ph, orp }
+    SensorReadings {
+        temperature,
+        ec,
+        ph,
+        orp,
+    }
 }
 
 async fn publish_sensor_readings(readings: &SensorReadings) {
@@ -253,37 +262,28 @@ async fn apply_treatment<Sensors: SensorReadRaw, Pumps: PumpController>(
 
     let dose_result = match dosing::select_dosing_action(config, readings) {
         PrioritizedTreatment::None => Ok(()),
-        PrioritizedTreatment::RaiseConductivity(ec) => {
-            dosing::dose_ec_step(tc, config, ec).await
-        }
-        PrioritizedTreatment::RaisePh(ph) => {
-            dosing::dose_ph_step(tc, config, &ph, true).await
-        }
-        PrioritizedTreatment::LowerPh(ph) => {
-            dosing::dose_ph_step(tc, config, &ph, false).await
-        }
-        PrioritizedTreatment::RaiseOrp(orp) => {
-            dosing::dose_orp_step(tc, config, &orp).await
-        }
+        PrioritizedTreatment::RaiseConductivity(ec) => dosing::dose_ec_step(tc, config, ec).await,
+        PrioritizedTreatment::RaisePh(ph) => dosing::dose_ph_step(tc, config, &ph, true).await,
+        PrioritizedTreatment::LowerPh(ph) => dosing::dose_ph_step(tc, config, &ph, false).await,
+        PrioritizedTreatment::RaiseOrp(orp) => dosing::dose_orp_step(tc, config, &orp).await,
     };
     if let Err(e) = dose_result {
         flash_log_error(&e);
     }
 }
 
-pub async fn run_dosing_cycle<
-    'a,
-    Sensors: SensorReadRaw,
-    Pumps: PumpController,
->(
+pub async fn run_dosing_cycle<'a, Sensors: SensorReadRaw, Pumps: PumpController>(
     treatment_controller: &crate::peripherals::TreatmentControllerMutex<'a, Sensors, Pumps>,
 ) {
-    if RESERVOIR_OPERATION_STATE.compare_exchange(
-        RESERVOIR_STATE_IDLE,
-        RESERVOIR_STATE_TREATMENT,
-        Ordering::AcqRel,
-        Ordering::Acquire,
-    ).is_err() {
+    if RESERVOIR_OPERATION_STATE
+        .compare_exchange(
+            RESERVOIR_STATE_IDLE,
+            RESERVOIR_STATE_TREATMENT,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        )
+        .is_err()
+    {
         log::info!("Skipping dosing cycle - reservoir operation in progress");
         return;
     }
@@ -320,16 +320,12 @@ pub async fn run_fill_cycle<
             log::error!("Float sensor GPIO error: {:?}", e);
             continue;
         }
-        log::info!("Float sensor triggered.  Starting reservoir top-up."); 
+        log::info!("Float sensor triggered.  Starting reservoir top-up.");
         perform_fill(treatment_controller).await;
     }
 }
 
-async fn perform_fill<
-    'a,
-    Sensors: SensorReadRaw,
-    Pumps: PumpController,
->(
+async fn perform_fill<'a, Sensors: SensorReadRaw, Pumps: PumpController>(
     treatment_controller: &crate::peripherals::TreatmentControllerMutex<'a, Sensors, Pumps>,
 ) {
     loop {
@@ -341,7 +337,10 @@ async fn perform_fill<
         ) {
             Ok(_) => break,
             Err(state) => {
-                log::info!("Waiting for reservoir operation to complete before filling (state: {})", state);
+                log::info!(
+                    "Waiting for reservoir operation to complete before filling (state: {})",
+                    state
+                );
                 embassy_time::Timer::after(embassy_time::Duration::from_secs(1)).await;
             }
         }
@@ -354,11 +353,7 @@ async fn perform_fill<
     RESERVOIR_OPERATION_STATE.store(RESERVOIR_STATE_IDLE, Ordering::Release);
 }
 
-async fn try_perform_fill<
-    'a,
-    Sensors: SensorReadRaw,
-    Pumps: PumpController,
->(
+async fn try_perform_fill<'a, Sensors: SensorReadRaw, Pumps: PumpController>(
     treatment_controller: &crate::peripherals::TreatmentControllerMutex<'a, Sensors, Pumps>,
 ) -> Result<(), LoggableError> {
     let config = get_device_config().await;
@@ -420,31 +415,34 @@ const ALL_DOSING_PUMPS: [DosingPump; 6] = [
     DosingPump::DoseSix,
 ];
 
-const ALL_OUTLETS: [Outlet; 4] = [
-    Outlet::One,
-    Outlet::Two,
-    Outlet::Three,
-    Outlet::Four,
-];
+const ALL_OUTLETS: [Outlet; 4] = [Outlet::One, Outlet::Two, Outlet::Three, Outlet::Four];
 
-pub async fn check_pump_currents<
-    Sensors: SensorReadRaw,
-    Pumps: PumpController,
->(
+pub async fn check_pump_currents<Sensors: SensorReadRaw, Pumps: PumpController>(
     treatment_controller: &crate::peripherals::TreatmentControllerMutex<'_, Sensors, Pumps>,
 ) {
     let mut periphs = treatment_controller.lock().await;
 
     let any_dosing_enabled = ALL_DOSING_PUMPS.iter().any(|dp| {
-        periphs.pump_controller.is_pump_enabled(&Pump::Dose(*dp)).unwrap_or(false)
+        periphs
+            .pump_controller
+            .is_pump_enabled(&Pump::Dose(*dp))
+            .unwrap_or(false)
     });
-    match periphs.pump_controller.read_current(&Pump::Dose(DosingPump::DoseOne)).await {
+    match periphs
+        .pump_controller
+        .read_current(&Pump::Dose(DosingPump::DoseOne))
+        .await
+    {
         Ok(current) => {
             let has_current = current >= CURRENT_CUTOFF;
             if any_dosing_enabled && !has_current {
-                flash_log_error(&LoggableError::Pump(crate::peripherals::PumpError::NoCurrent));
+                flash_log_error(&LoggableError::Pump(
+                    crate::peripherals::PumpError::NoCurrent,
+                ));
             } else if !any_dosing_enabled && has_current {
-                flash_log_error(&LoggableError::Pump(crate::peripherals::PumpError::UnexpectedCurrent));
+                flash_log_error(&LoggableError::Pump(
+                    crate::peripherals::PumpError::UnexpectedCurrent,
+                ));
                 periphs.pump_controller.kill_relay();
             }
         }
@@ -466,9 +464,13 @@ pub async fn check_pump_currents<
             Ok(current) => {
                 let has_current = current >= CURRENT_CUTOFF;
                 if enabled && !has_current {
-                    flash_log_error(&LoggableError::Pump(crate::peripherals::PumpError::NoCurrent));
+                    flash_log_error(&LoggableError::Pump(
+                        crate::peripherals::PumpError::NoCurrent,
+                    ));
                 } else if !enabled && has_current {
-                    flash_log_error(&LoggableError::Pump(crate::peripherals::PumpError::UnexpectedCurrent));
+                    flash_log_error(&LoggableError::Pump(
+                        crate::peripherals::PumpError::UnexpectedCurrent,
+                    ));
                     periphs.pump_controller.kill_relay();
                 }
             }

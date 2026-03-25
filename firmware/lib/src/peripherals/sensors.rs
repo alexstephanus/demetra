@@ -2,8 +2,8 @@ use core::marker::PhantomData;
 
 use crate::{
     config::calibration::{
-        ConductivityCalibration, OrpCalibration,
-        OrpMeasurementPoint, PhMeasurementPoint, ThreePointPhCalibration,
+        ConductivityCalibration, OrpCalibration, OrpMeasurementPoint, PhMeasurementPoint,
+        ThreePointPhCalibration,
     },
     ui_types::SensorType,
     units::{Conductivity, Resistance, Temperature, Voltage},
@@ -101,7 +101,8 @@ where
     ) -> Result<PhMeasurementPoint, SensorError> {
         debug!("Reading ph");
         let measured_voltage = self.measure_ph_voltage().await?;
-        let ph_measurement = ph_calibration.get_calibrated_ph_measurement(temperature, measured_voltage);
+        let ph_measurement =
+            ph_calibration.get_calibrated_ph_measurement(temperature, measured_voltage);
         Ok(ph_measurement)
     }
 
@@ -111,7 +112,9 @@ where
     ) -> Result<OrpMeasurementPoint, SensorError> {
         debug!("Reading ORP");
         let adc_voltage = self.read_sensor_voltage(SensorType::Orp).await?;
-        let sensor_voltage = self.raw_sensors.adc_mv_to_sensor_value(SensorType::Orp, adc_voltage);
+        let sensor_voltage = self
+            .raw_sensors
+            .adc_mv_to_sensor_value(SensorType::Orp, adc_voltage);
         Ok(orp_calibration.get_calibrated_orp_measurement(Voltage::from_mv(sensor_voltage)))
     }
 
@@ -140,20 +143,30 @@ where
     }
 
     pub async fn measure_ph_voltage(&mut self) -> Result<Voltage, SensorError> {
-        self.read_sensor_voltage(SensorType::Ph).await.map(Voltage::from_mv)
+        self.read_sensor_voltage(SensorType::Ph)
+            .await
+            .map(Voltage::from_mv)
     }
 
     pub async fn measure_orp_voltage(&mut self) -> Result<Voltage, SensorError> {
-        self.read_sensor_voltage(SensorType::Orp).await.map(Voltage::from_mv)
+        self.read_sensor_voltage(SensorType::Orp)
+            .await
+            .map(Voltage::from_mv)
     }
 
     pub async fn measure_ec_resistance(&mut self) -> Result<Resistance, SensorError> {
         let voltage = self.read_sensor_voltage(SensorType::Conductivity).await?;
-        Ok(Resistance::from_ohms(self.raw_sensors.adc_mv_to_sensor_value(SensorType::Conductivity, voltage)))
+        Ok(Resistance::from_ohms(
+            self.raw_sensors
+                .adc_mv_to_sensor_value(SensorType::Conductivity, voltage),
+        ))
     }
 
     pub async fn measure_temperature_resistance(&mut self) -> Result<Resistance, SensorError> {
         let voltage = self.read_sensor_voltage(SensorType::Temperature).await?;
-        Ok(Resistance::from_ohms(self.raw_sensors.adc_mv_to_sensor_value(SensorType::Temperature, voltage)))
+        Ok(Resistance::from_ohms(
+            self.raw_sensors
+                .adc_mv_to_sensor_value(SensorType::Temperature, voltage),
+        ))
     }
 }

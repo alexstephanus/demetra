@@ -1,8 +1,6 @@
 use chrono::{DateTime, Utc};
 use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
-    once_lock::OnceLock,
-    rwlock::RwLock,
+    blocking_mutex::raw::CriticalSectionRawMutex, once_lock::OnceLock, rwlock::RwLock,
 };
 
 use crate::peripherals::rtc::SystemTimeInfo;

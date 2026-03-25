@@ -1,14 +1,16 @@
-use embedded_charts::prelude::*;
 use embedded_charts::embedded_graphics::{
+    mono_font::{
+        ascii::{FONT_7X14, FONT_9X18_BOLD},
+        MonoTextStyle,
+    },
     pixelcolor::Rgb888,
-    mono_font::{ascii::{FONT_7X14, FONT_9X18_BOLD}, MonoTextStyle},
-    text::{Text, Alignment, Baseline, TextStyleBuilder},
     primitives::{Line, PrimitiveStyle},
-    Pixel,
-    Drawable,
+    text::{Alignment, Baseline, Text, TextStyleBuilder},
+    Drawable, Pixel,
 };
+use embedded_charts::prelude::*;
 // use num_traits::float::Float;
-use slint::{SharedPixelBuffer, Rgb8Pixel, Image};
+use slint::{Image, Rgb8Pixel, SharedPixelBuffer};
 
 use crate::ui_types::SensorType;
 
@@ -141,7 +143,13 @@ fn value_to_y(val: f32, y_min: f32, y_max: f32, chart_top: i32, chart_height: i3
     chart_top + ((1.0 - normalized) * (chart_height - 1) as f32) as i32
 }
 
-fn blend_range_band(target: &mut SlintDrawTarget, top_y: i32, bottom_y: i32, left_x: i32, right_x: i32) {
+fn blend_range_band(
+    target: &mut SlintDrawTarget,
+    top_y: i32,
+    bottom_y: i32,
+    left_x: i32,
+    right_x: i32,
+) {
     let buf_width = target.buffer.width() as i32;
     let buf_height = target.buffer.height() as i32;
     let stride = buf_width as usize * 3;
@@ -242,7 +250,13 @@ fn draw_x_grid(target: &mut SlintDrawTarget, width: u32, height: u32, margins: M
     }
 }
 
-fn draw_time_labels(target: &mut SlintDrawTarget, total_hours: f32, width: u32, height: u32, margins: Margins) {
+fn draw_time_labels(
+    target: &mut SlintDrawTarget,
+    total_hours: f32,
+    width: u32,
+    height: u32,
+    margins: Margins,
+) {
     let text_style = MonoTextStyle::new(&FONT_7X14, Rgb888::BLACK);
 
     let chart_left = margins.left as i32;
@@ -267,29 +281,54 @@ fn draw_time_labels(target: &mut SlintDrawTarget, total_hours: f32, width: u32, 
 
     let mut buf0 = [0u8; 16];
     let left_label = format_hours(total_hours, &mut buf0);
-    let _ = Text::with_text_style(left_label, Point::new(chart_left, label_y), text_style, left_aligned)
-        .draw(target);
+    let _ = Text::with_text_style(
+        left_label,
+        Point::new(chart_left, label_y),
+        text_style,
+        left_aligned,
+    )
+    .draw(target);
 
     let mut buf1 = [0u8; 16];
     let q1_label = format_hours(total_hours * 3.0 / 4.0, &mut buf1);
     let q1_x = chart_left + chart_width / 4;
-    let _ = Text::with_text_style(q1_label, Point::new(q1_x, label_y), text_style, center_aligned)
-        .draw(target);
+    let _ = Text::with_text_style(
+        q1_label,
+        Point::new(q1_x, label_y),
+        text_style,
+        center_aligned,
+    )
+    .draw(target);
 
     let mut buf2 = [0u8; 16];
     let mid_label = format_hours(total_hours / 2.0, &mut buf2);
     let mid_x = chart_left + chart_width / 2;
-    let _ = Text::with_text_style(mid_label, Point::new(mid_x, label_y), text_style, center_aligned)
-        .draw(target);
+    let _ = Text::with_text_style(
+        mid_label,
+        Point::new(mid_x, label_y),
+        text_style,
+        center_aligned,
+    )
+    .draw(target);
 
     let mut buf3 = [0u8; 16];
     let q3_label = format_hours(total_hours / 4.0, &mut buf3);
     let q3_x = chart_left + chart_width * 3 / 4;
-    let _ = Text::with_text_style(q3_label, Point::new(q3_x, label_y), text_style, center_aligned)
-        .draw(target);
+    let _ = Text::with_text_style(
+        q3_label,
+        Point::new(q3_x, label_y),
+        text_style,
+        center_aligned,
+    )
+    .draw(target);
 
-    let _ = Text::with_text_style("Now", Point::new(chart_right, label_y), text_style, right_aligned)
-        .draw(target);
+    let _ = Text::with_text_style(
+        "Now",
+        Point::new(chart_right, label_y),
+        text_style,
+        right_aligned,
+    )
+    .draw(target);
 }
 
 fn draw_title(target: &mut SlintDrawTarget, sensor_type: SensorType, width: u32, margins: Margins) {
@@ -301,8 +340,8 @@ fn draw_title(target: &mut SlintDrawTarget, sensor_type: SensorType, width: u32,
 
     let label = sensor_label(sensor_type);
     let center_x = (margins.left as i32 + width as i32 - margins.right as i32) / 2;
-    let _ = Text::with_text_style(label, Point::new(center_x, 2), text_style, centered)
-        .draw(target);
+    let _ =
+        Text::with_text_style(label, Point::new(center_x, 2), text_style, centered).draw(target);
 }
 
 pub fn render_sensor_chart(
@@ -403,7 +442,16 @@ pub fn render_sensor_chart(
     blend_range_band(&mut target, band_top, band_bottom, chart_left, chart_right);
 
     draw_x_grid(&mut target, width, height, margins);
-    draw_y_grid_and_labels(&mut target, min_acceptable, max_acceptable, y_min, y_max, width, height, margins);
+    draw_y_grid_and_labels(
+        &mut target,
+        min_acceptable,
+        max_acceptable,
+        y_min,
+        y_max,
+        width,
+        height,
+        margins,
+    );
     draw_time_labels(&mut target, bounds.max_x, width, height, margins);
     draw_title(&mut target, sensor_type, width, margins);
 
@@ -459,9 +507,7 @@ mod tests {
 
     #[test]
     fn test_render_chart_constant_values() {
-        let readings: Vec<(i64, f32)> = (0..20)
-            .map(|i| (i * 3600, 7.0))
-            .collect();
+        let readings: Vec<(i64, f32)> = (0..20).map(|i| (i * 3600, 7.0)).collect();
         let image = render_sensor_chart(&readings, SensorType::Ph, 5.5, 7.5, 320, 240);
         assert_eq!(image.size().width, 320);
     }

@@ -4,9 +4,9 @@ use slint::ComponentHandle;
 
 use crate::{
     config::calibration::DoseCalibrationPoint,
-    peripherals::{rtc::RealTimeClock, DosingPump, PumpController, SensorReadRaw, Pump},
+    peripherals::{rtc::RealTimeClock, DosingPump, Pump, PumpController, SensorReadRaw},
     storage::update_device_config,
-    ui_types::{MainWindow, PumpUiState, WorkflowUiState, UiTreatmentSolution, Status},
+    ui_types::{MainWindow, PumpUiState, Status, UiTreatmentSolution, WorkflowUiState},
     units::Volume,
 };
 
@@ -19,20 +19,32 @@ pub struct EnableDosingPump {
 
 impl EnableDosingPump {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_enable_pump(move |pump_index| {
-            if let Some(pump) = DosingPump::from_int(pump_index as usize) {
-                send(EnableDosingPump { pump });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_enable_pump(move |pump_index| {
+                if let Some(pump) = DosingPump::from_int(pump_index as usize) {
+                    send(EnableDosingPump { pump });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.pumps.get_dosing_pump_state_mut(self.pump).enabled = true;
-        }).await;
+            device_config
+                .pumps
+                .get_dosing_pump_state_mut(self.pump)
+                .enabled = true;
+        })
+        .await;
     }
 }
 
@@ -43,20 +55,32 @@ pub struct DisableDosingPump {
 
 impl DisableDosingPump {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_disable_pump(move |pump_index| {
-            if let Some(pump) = DosingPump::from_int(pump_index as usize) {
-                send(DisableDosingPump { pump });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_disable_pump(move |pump_index| {
+                if let Some(pump) = DosingPump::from_int(pump_index as usize) {
+                    send(DisableDosingPump { pump });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.pumps.get_dosing_pump_state_mut(self.pump).enabled = false;
-        }).await;
+            device_config
+                .pumps
+                .get_dosing_pump_state_mut(self.pump)
+                .enabled = false;
+        })
+        .await;
     }
 }
 
@@ -68,20 +92,32 @@ pub struct SetDosingPumpStatus {
 
 impl SetDosingPumpStatus {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_set_dosing_pump_status(move |pump_index, status| {
-            if let Some(pump) = DosingPump::from_int(pump_index as usize) {
-                send(SetDosingPumpStatus { pump, status });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_set_dosing_pump_status(move |pump_index, status| {
+                if let Some(pump) = DosingPump::from_int(pump_index as usize) {
+                    send(SetDosingPumpStatus { pump, status });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.pumps.get_dosing_pump_state_mut(self.pump).status = self.status;
-        }).await;
+            device_config
+                .pumps
+                .get_dosing_pump_state_mut(self.pump)
+                .status = self.status;
+        })
+        .await;
     }
 }
 
@@ -93,20 +129,35 @@ pub struct RenameDosingPump {
 
 impl RenameDosingPump {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_rename_pump(move |pump_index, name| {
-            if let Some(pump) = DosingPump::from_int(pump_index as usize) {
-                send(RenameDosingPump { pump, new_name: name });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_rename_pump(move |pump_index, name| {
+                if let Some(pump) = DosingPump::from_int(pump_index as usize) {
+                    send(RenameDosingPump {
+                        pump,
+                        new_name: name,
+                    });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.pumps.get_dosing_pump_state_mut(self.pump).name = Some(self.new_name.clone());
-        }).await;
+            device_config
+                .pumps
+                .get_dosing_pump_state_mut(self.pump)
+                .name = Some(self.new_name.clone());
+        })
+        .await;
     }
 }
 
@@ -118,20 +169,32 @@ pub struct SetTreatmentSolution {
 
 impl SetTreatmentSolution {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<PumpUiState>().on_update_treatment_solution(move |pump_index, solution| {
-            if let Some(pump) = DosingPump::from_int(pump_index as usize) {
-                send(SetTreatmentSolution { pump, solution });
-            }
-        });
+        ui.global::<PumpUiState>()
+            .on_update_treatment_solution(move |pump_index, solution| {
+                if let Some(pump) = DosingPump::from_int(pump_index as usize) {
+                    send(SetTreatmentSolution { pump, solution });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.pumps.get_dosing_pump_state_mut(self.pump).treatment_solution = self.solution.clone();
-        }).await;
+            device_config
+                .pumps
+                .get_dosing_pump_state_mut(self.pump)
+                .treatment_solution = self.solution.clone();
+        })
+        .await;
     }
 }
 
@@ -145,19 +208,27 @@ pub struct CalibrateDosingPump {
 
 impl CalibrateDosingPump {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<WorkflowUiState>().on_save_dosing_pump_calibration(move |pump_number, vol_3s, vol_10s, vol_30s| {
-            if let Some(pump) = DosingPump::from_int((pump_number - 1) as usize) {
-                send(CalibrateDosingPump {
-                    pump,
-                    first_calibration_point: DoseCalibrationPoint::new(3000.0, vol_3s),
-                    second_calibration_point: DoseCalibrationPoint::new(10000.0, vol_10s),
-                    third_calibration_point: DoseCalibrationPoint::new(30000.0, vol_30s),
-                });
-            }
-        });
+        ui.global::<WorkflowUiState>()
+            .on_save_dosing_pump_calibration(move |pump_number, vol_3s, vol_10s, vol_30s| {
+                if let Some(pump) = DosingPump::from_int((pump_number - 1) as usize) {
+                    send(CalibrateDosingPump {
+                        pump,
+                        first_calibration_point: DoseCalibrationPoint::new(3000.0, vol_3s),
+                        second_calibration_point: DoseCalibrationPoint::new(10000.0, vol_10s),
+                        third_calibration_point: DoseCalibrationPoint::new(30000.0, vol_30s),
+                    });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
@@ -170,9 +241,17 @@ impl CalibrateDosingPump {
             ctx.current_timestamp,
         );
         update_device_config(ctx.config_buffer, ctx.current_timestamp, |device_config| {
-            device_config.pumps.get_dosing_pump_state_mut(self.pump).calibration = new_calibration.clone();
-        }).await;
-        log::info!("Updated dosing pump {:?} calibration: {:?}", self.pump, new_calibration);
+            device_config
+                .pumps
+                .get_dosing_pump_state_mut(self.pump)
+                .calibration = new_calibration.clone();
+        })
+        .await;
+        log::info!(
+            "Updated dosing pump {:?} calibration: {:?}",
+            self.pump,
+            new_calibration
+        );
     }
 }
 
@@ -184,29 +263,52 @@ pub struct RunDosingPump {
 
 impl RunDosingPump {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<WorkflowUiState>().on_run_dosing_pump(move |pump_number, duration_seconds| {
-            if let Some(pump) = DosingPump::from_int((pump_number - 1) as usize) {
-                send(RunDosingPump { pump, duration_seconds: duration_seconds as u64 });
-            }
-        });
+        ui.global::<WorkflowUiState>()
+            .on_run_dosing_pump(move |pump_number, duration_seconds| {
+                if let Some(pump) = DosingPump::from_int((pump_number - 1) as usize) {
+                    send(RunDosingPump {
+                        pump,
+                        duration_seconds: duration_seconds as u64,
+                    });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         {
             let mut tc = ctx.treatment_controller.lock().await;
             if let Err(e) = tc.pump_controller.enable_pump(&Pump::Dose(self.pump)).await {
-                log::error!("Failed to enable dosing pump {:?} for manual run: {:?}", self.pump, e);
+                log::error!(
+                    "Failed to enable dosing pump {:?} for manual run: {:?}",
+                    self.pump,
+                    e
+                );
                 return;
             }
         }
         embassy_time::Timer::after(embassy_time::Duration::from_secs(self.duration_seconds)).await;
         {
             let mut tc = ctx.treatment_controller.lock().await;
-            if let Err(e) = tc.pump_controller.disable_pump(&Pump::Dose(self.pump)).await {
-                log::error!("Failed to disable dosing pump {:?} after manual run: {:?}", self.pump, e);
+            if let Err(e) = tc
+                .pump_controller
+                .disable_pump(&Pump::Dose(self.pump))
+                .await
+            {
+                log::error!(
+                    "Failed to disable dosing pump {:?} after manual run: {:?}",
+                    self.pump,
+                    e
+                );
             }
         }
     }
@@ -220,36 +322,64 @@ pub struct RunDosingPumpVolumetric {
 
 impl RunDosingPumpVolumetric {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<WorkflowUiState>().on_run_dosing_pump_volumetric(move |pump_number, ml| {
-            if let Some(pump) = DosingPump::from_int((pump_number - 1) as usize) {
-                send(RunDosingPumpVolumetric {
-                    pump,
-                    volume: Volume::from_milliliters(ml),
-                });
-            }
-        });
+        ui.global::<WorkflowUiState>()
+            .on_run_dosing_pump_volumetric(move |pump_number, ml| {
+                if let Some(pump) = DosingPump::from_int((pump_number - 1) as usize) {
+                    send(RunDosingPumpVolumetric {
+                        pump,
+                        volume: Volume::from_milliliters(ml),
+                    });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         let config = crate::storage::get_device_config().await;
         let pump_state = config.pumps.get_dosing_pump_state(self.pump);
         let duration = pump_state.calibration.get_dose_duration(self.volume);
-        log::info!("Volumetric dose: pump {:?}, {:.2}mL, {}ms", self.pump, self.volume.to_milliliters(), duration.as_millis());
+        log::info!(
+            "Volumetric dose: pump {:?}, {:.2}mL, {}ms",
+            self.pump,
+            self.volume.to_milliliters(),
+            duration.as_millis()
+        );
         {
             let mut tc = ctx.treatment_controller.lock().await;
             if let Err(e) = tc.pump_controller.enable_pump(&Pump::Dose(self.pump)).await {
-                log::error!("Failed to enable dosing pump {:?} for volumetric dose: {:?}", self.pump, e);
+                log::error!(
+                    "Failed to enable dosing pump {:?} for volumetric dose: {:?}",
+                    self.pump,
+                    e
+                );
                 return;
             }
         }
-        embassy_time::Timer::after(embassy_time::Duration::from_millis(duration.as_millis() as u64)).await;
+        embassy_time::Timer::after(embassy_time::Duration::from_millis(
+            duration.as_millis() as u64
+        ))
+        .await;
         {
             let mut tc = ctx.treatment_controller.lock().await;
-            if let Err(e) = tc.pump_controller.disable_pump(&Pump::Dose(self.pump)).await {
-                log::error!("Failed to disable dosing pump {:?} after volumetric dose: {:?}", self.pump, e);
+            if let Err(e) = tc
+                .pump_controller
+                .disable_pump(&Pump::Dose(self.pump))
+                .await
+            {
+                log::error!(
+                    "Failed to disable dosing pump {:?} after volumetric dose: {:?}",
+                    self.pump,
+                    e
+                );
             }
         }
     }
@@ -262,14 +392,22 @@ pub struct StartDosingPump {
 
 impl StartDosingPump {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<WorkflowUiState>().on_start_dosing_pump(move |pump_number| {
-            if let Some(pump) = DosingPump::from_int((pump_number - 1) as usize) {
-                send(StartDosingPump { pump });
-            }
-        });
+        ui.global::<WorkflowUiState>()
+            .on_start_dosing_pump(move |pump_number| {
+                if let Some(pump) = DosingPump::from_int((pump_number - 1) as usize) {
+                    send(StartDosingPump { pump });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
@@ -288,19 +426,31 @@ pub struct StopDosingPump {
 
 impl StopDosingPump {
     pub fn register_callback(ui: &MainWindow, send: impl Fn(Self) + 'static + Clone) {
-        ui.global::<WorkflowUiState>().on_stop_dosing_pump(move |pump_number| {
-            if let Some(pump) = DosingPump::from_int((pump_number - 1) as usize) {
-                send(StopDosingPump { pump });
-            }
-        });
+        ui.global::<WorkflowUiState>()
+            .on_stop_dosing_pump(move |pump_number| {
+                if let Some(pump) = DosingPump::from_int((pump_number - 1) as usize) {
+                    send(StopDosingPump { pump });
+                }
+            });
     }
 
-    pub async fn handle<'a, Rtc: RealTimeClock, Sensors: SensorReadRaw, Pumps: PumpController, S: Storage<Error = E>, E: Debug>(
+    pub async fn handle<
+        'a,
+        Rtc: RealTimeClock,
+        Sensors: SensorReadRaw,
+        Pumps: PumpController,
+        S: Storage<Error = E>,
+        E: Debug,
+    >(
         self,
         ctx: &mut MessageContext<'a, '_, Rtc, Sensors, Pumps, S, E>,
     ) {
         let mut tc = ctx.treatment_controller.lock().await;
-        if let Err(e) = tc.pump_controller.disable_pump(&Pump::Dose(self.pump)).await {
+        if let Err(e) = tc
+            .pump_controller
+            .disable_pump(&Pump::Dose(self.pump))
+            .await
+        {
             log::error!("Failed to stop dosing pump {:?}: {:?}", self.pump, e);
         }
     }

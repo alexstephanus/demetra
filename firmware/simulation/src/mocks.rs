@@ -1,11 +1,11 @@
-use std::io::{self, Write};
 use anyhow::Result;
-use tokio::sync::Mutex;
-use std::sync::Arc;
-use lib::peripherals::{SensorReadRaw, SensorError, PumpController, PumpError, DosingPump, Pump};
-use lib::ui_types::Outlet;
 use lib::peripherals::rtc::{RealTimeClock, RtcError};
+use lib::peripherals::{DosingPump, Pump, PumpController, PumpError, SensorError, SensorReadRaw};
+use lib::ui_types::Outlet;
 use lib::ui_types::SensorType;
+use std::io::{self, Write};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use chrono::{DateTime, Utc};
 
@@ -13,7 +13,7 @@ use chrono::{DateTime, Utc};
 #[derive(Debug, Clone)]
 pub struct CliSensors {
     pub ph_sensor: Arc<Mutex<CliPhSensor>>,
-    pub ec_sensor: Arc<Mutex<CliEcSensor>>, 
+    pub ec_sensor: Arc<Mutex<CliEcSensor>>,
     pub orp_sensor: Arc<Mutex<CliOrpSensor>>,
     pub temperature_sensor: Arc<Mutex<CliTemperatureSensor>>,
 }
@@ -41,27 +41,42 @@ impl SensorReadRaw for CliSensors {
     }
 
     async fn read_sensor_raw(&mut self, sensor: SensorType) -> Result<f32, SensorError> {
-        println!("CliSensors::read_sensor_raw called for sensor: {:?}", sensor);
+        println!(
+            "CliSensors::read_sensor_raw called for sensor: {:?}",
+            sensor
+        );
         match sensor {
             SensorType::Ph => {
                 println!("Reading pH sensor...");
                 let ph_sensor = self.ph_sensor.lock().await;
-                ph_sensor.read_raw_voltage().await.map_err(|_| SensorError::HardwareReadFailure(sensor))
+                ph_sensor
+                    .read_raw_voltage()
+                    .await
+                    .map_err(|_| SensorError::HardwareReadFailure(sensor))
             }
             SensorType::Conductivity => {
                 println!("Reading conductivity sensor...");
                 let ec_sensor = self.ec_sensor.lock().await;
-                ec_sensor.read_raw_voltage().await.map_err(|_| SensorError::HardwareReadFailure(sensor))
+                ec_sensor
+                    .read_raw_voltage()
+                    .await
+                    .map_err(|_| SensorError::HardwareReadFailure(sensor))
             }
             SensorType::Orp => {
                 println!("Reading ORP sensor...");
                 let orp_sensor = self.orp_sensor.lock().await;
-                orp_sensor.read_raw_voltage().await.map_err(|_| SensorError::HardwareReadFailure(sensor))
+                orp_sensor
+                    .read_raw_voltage()
+                    .await
+                    .map_err(|_| SensorError::HardwareReadFailure(sensor))
             }
             SensorType::Temperature => {
                 println!("Reading temperature sensor...");
                 let temp_sensor = self.temperature_sensor.lock().await;
-                temp_sensor.read_temperature().await.map_err(|_| SensorError::HardwareReadFailure(sensor))
+                temp_sensor
+                    .read_temperature()
+                    .await
+                    .map_err(|_| SensorError::HardwareReadFailure(sensor))
             }
         }
     }
@@ -78,7 +93,7 @@ impl CliPhSensor {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Prompt for pH measurement voltage (what the ADC would read)
     pub async fn read_raw_voltage(&self) -> Result<f32> {
         prompt_for_input("pH measurement voltage (0.0-3.3V)").await
@@ -92,7 +107,7 @@ impl CliEcSensor {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Prompt for EC measurement voltage
     pub async fn read_raw_voltage(&self) -> Result<f32> {
         prompt_for_input("conductivity measurement voltage (0.0-3.3V)").await
@@ -106,7 +121,7 @@ impl CliOrpSensor {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Prompt for ORP measurement voltage
     pub async fn read_raw_voltage(&self) -> Result<f32> {
         prompt_for_input("ORP measurement voltage (0.0-3.3V)").await
@@ -120,7 +135,7 @@ impl CliTemperatureSensor {
     pub fn new() -> Self {
         Self
     }
-    
+
     /// Prompt for temperature directly (temperature sensor doesn't use voltage)
     pub async fn read_temperature(&self) -> Result<f32> {
         prompt_for_input("temperature (°C)").await
@@ -153,11 +168,13 @@ impl RealTimeClock for MockRtc {
         let now = Utc::now();
         let new_offset = datetime - now;
         *self.time_offset.write().unwrap() = new_offset;
-        println!("MockRTC: Set datetime to {} (offset: {})", datetime, new_offset);
+        println!(
+            "MockRTC: Set datetime to {} (offset: {})",
+            datetime, new_offset
+        );
         Ok(())
     }
 }
-
 
 #[derive(Debug)]
 pub struct CliCurrentSenseAdc;
@@ -166,9 +183,10 @@ impl CliCurrentSenseAdc {
     pub fn new() -> Self {
         Self
     }
-    
+
     pub async fn read_current(&self, channel: u8) -> Result<f32> {
-        let result = prompt_for_input(&format!("current sense ADC channel {} (mA)", channel)).await?;
+        let result =
+            prompt_for_input(&format!("current sense ADC channel {} (mA)", channel)).await?;
         Ok(result)
     }
 }
@@ -176,23 +194,29 @@ impl CliCurrentSenseAdc {
 /// Helper function to prompt for CLI input with proper formatting
 async fn prompt_for_input(prompt: &str) -> Result<f32> {
     use tokio::io::{AsyncBufReadExt, BufReader};
-    
+
     // Print prompt
     print!("\nInput {}: ", prompt);
-    io::stdout().flush().map_err(|e| anyhow::anyhow!("Failed to flush stdout: {}", e))?;
-    
+    io::stdout()
+        .flush()
+        .map_err(|e| anyhow::anyhow!("Failed to flush stdout: {}", e))?;
+
     // Read input from stdin
     let stdin = tokio::io::stdin();
     let mut reader = BufReader::new(stdin);
     let mut input = String::new();
-    
-    reader.read_line(&mut input).await
+
+    reader
+        .read_line(&mut input)
+        .await
         .map_err(|e| anyhow::anyhow!("Failed to read input: {}", e))?;
-    
+
     // Parse the input
-    let value: f32 = input.trim().parse()
+    let value: f32 = input
+        .trim()
+        .parse()
         .map_err(|e| anyhow::anyhow!("Invalid number '{}': {}", input.trim(), e))?;
-    
+
     println!("Received: {}", value);
     Ok(value)
 }
@@ -256,7 +280,10 @@ impl PumpController for CliPumpController {
                 },
             }
         };
-        println!("MockPumpController: Reading current for {:?} = {}A (enabled: {})", pump, current, enabled);
+        println!(
+            "MockPumpController: Reading current for {:?} = {}A (enabled: {})",
+            pump, current, enabled
+        );
         Ok(current)
     }
 

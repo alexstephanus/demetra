@@ -1,60 +1,43 @@
-
 use core::sync::atomic::Ordering;
 
 use embedded_hal::i2c::I2c;
 
-use embedded_hal_bus::spi::{
-    ExclusiveDevice,
-    NoDelay,
-};
+use embedded_hal_bus::spi::{ExclusiveDevice, NoDelay};
 
-use esp_hal::{
-    Async,
-    gpio::Output,
-    spi::master::SpiDmaBus,
-};
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
-    channel::Sender,
-};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Sender};
 use embedded_hal_async::delay::DelayNs;
+use esp_hal::{gpio::Output, spi::master::SpiDmaBus, Async};
 
-use ft6336u_driver::{FT6336U, TouchPoint, TouchStatus};
+use ft6336u_driver::{TouchPoint, TouchStatus, FT6336U};
 
 use lcd_async::{
-    Builder,
-    Display,
     interface::SpiInterface,
     models::ST7796,
     options::{ColorOrder, Orientation},
+    Builder, Display,
 };
 use slint::{
-    PhysicalPosition,
     platform::{
-        PointerEventButton,
-        WindowEvent,
-        software_renderer::{
-            PhysicalRegion,
-            Rgb565Pixel,
-        },
-    }
+        software_renderer::{PhysicalRegion, Rgb565Pixel},
+        PointerEventButton, WindowEvent,
+    },
+    PhysicalPosition,
 };
 
-use lib::ui_backend::ui_runner::{
-    DISPLAY_HEIGHT,
-    DISPLAY_WIDTH,
-    DisplayPixels,
-    TouchInput,
-};
+use lib::ui_backend::ui_runner::{DisplayPixels, TouchInput, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 
-use super::type_aliases::{
-    SharedI2cDevice,
-};
+use super::type_aliases::SharedI2cDevice;
 
-use crate::hardware_peripherals::storage::{ DMA_FLASH_STATE, DMA_FLASH_STATE_IDLE, DMA_FLASH_STATE_DMA_ACTIVE };
+use crate::hardware_peripherals::storage::{
+    DMA_FLASH_STATE, DMA_FLASH_STATE_DMA_ACTIVE, DMA_FLASH_STATE_IDLE,
+};
 
 pub struct HardwareDisplay<'a> {
-    display: Display<SpiInterface<ExclusiveDevice<SpiDmaBus<'a, Async>, Output<'a>, NoDelay>, Output<'a>>, ST7796, Output<'a>>,
+    display: Display<
+        SpiInterface<ExclusiveDevice<SpiDmaBus<'a, Async>, Output<'a>, NoDelay>, Output<'a>>,
+        ST7796,
+        Output<'a>,
+    >,
 }
 
 impl<'a> HardwareDisplay<'a> {
@@ -63,7 +46,7 @@ impl<'a> HardwareDisplay<'a> {
         cs_pin: Output<'a>,
         dc_pin: Output<'a>,
         reset_pin: Output<'a>,
-        delay: &mut Delay
+        delay: &mut Delay,
     ) -> Self {
         let spi_device = ExclusiveDevice::new_no_delay(spi_bus, cs_pin).unwrap();
         let display_interface = SpiInterface::new(spi_device, dc_pin);
@@ -71,11 +54,14 @@ impl<'a> HardwareDisplay<'a> {
             .reset_pin(reset_pin)
             .color_order(ColorOrder::Bgr)
             .display_size(DISPLAY_WIDTH, DISPLAY_HEIGHT)
-            .init(delay).await.unwrap();
-        display.set_orientation(Orientation::new().flip_horizontal()).await.unwrap();
-        Self {
-            display
-        }
+            .init(delay)
+            .await
+            .unwrap();
+        display
+            .set_orientation(Orientation::new().flip_horizontal())
+            .await
+            .unwrap();
+        Self { display }
     }
 
     fn byte_swap_pixels(pixels: &mut [u8], update_region: PhysicalRegion) {
@@ -113,20 +99,16 @@ impl<'a> DisplayPixels for HardwareDisplay<'a> {
             }
         }
 
-        let result = self.display.show_raw_data(
-            0,
-            0,
-            DISPLAY_WIDTH,
-            DISPLAY_HEIGHT,
-            cast_pixels
-        ).await;
+        let result = self
+            .display
+            .show_raw_data(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, cast_pixels)
+            .await;
         DMA_FLASH_STATE.store(DMA_FLASH_STATE_IDLE, Ordering::Release);
         if let Err(e) = result {
-            lib::logging::flash_log_error(
-                &lib::logging::LoggableError::Hardware(
-                    alloc::format!("Display SPI transfer failed: {:?}", e)
-                )
-            );
+            lib::logging::flash_log_error(&lib::logging::LoggableError::Hardware(alloc::format!(
+                "Display SPI transfer failed: {:?}",
+                e
+            )));
             return;
         }
         log::info!("Showing pixels took {:?}", show_time.elapsed());
@@ -144,11 +126,16 @@ impl<'a> HardwareTouchInput<'a> {
     pub fn new(
         mut i2c_device: SharedI2cDevice<'a>,
         touch_interrupt: esp_hal::gpio::Input<'a>,
-        window_event_tx: Sender<'static, CriticalSectionRawMutex, WindowEvent, 75>
+        window_event_tx: Sender<'static, CriticalSectionRawMutex, WindowEvent, 75>,
     ) -> Self {
-        i2c_device.write(ft6336u_driver::I2C_ADDR, &[ft6336u_driver::ADDR_ACTIVE_MODE_RATE as u8, 0x24 as u8]).unwrap();
+        i2c_device
+            .write(
+                ft6336u_driver::I2C_ADDR,
+                &[ft6336u_driver::ADDR_ACTIVE_MODE_RATE as u8, 0x24 as u8],
+            )
+            .unwrap();
         Self {
-            touch_screen: FT6336U::new(i2c_device), 
+            touch_screen: FT6336U::new(i2c_device),
             touch_interrupt,
             window_event_tx,
             last_touch_point: TouchPoint {
@@ -159,7 +146,11 @@ impl<'a> HardwareTouchInput<'a> {
         }
     }
 
-    fn find_closest_touch_point(&mut self, touch_point_1: TouchPoint, touch_point_2: TouchPoint) -> TouchPoint {
+    fn find_closest_touch_point(
+        &mut self,
+        touch_point_1: TouchPoint,
+        touch_point_2: TouchPoint,
+    ) -> TouchPoint {
         let touch_point_1_x: i32 = touch_point_1.x.into();
         let touch_point_1_y: i32 = touch_point_1.y.into();
         let touch_point_2_x: i32 = touch_point_2.x.into();
@@ -168,13 +159,11 @@ impl<'a> HardwareTouchInput<'a> {
         let last_touch_x: i32 = self.last_touch_point.x.into();
         let last_touch_y: i32 = self.last_touch_point.y.into();
 
-        match (
-            (last_touch_x - touch_point_1_x) * (last_touch_x - touch_point_1_x) +
-            (last_touch_y - touch_point_1_y) * (last_touch_y - touch_point_1_y)
-        ) < (
-            (last_touch_x - touch_point_2_x) * (last_touch_x - touch_point_2_x) +
-            (last_touch_y - touch_point_2_y) * (last_touch_y - touch_point_2_y)
-        ){
+        match ((last_touch_x - touch_point_1_x) * (last_touch_x - touch_point_1_x)
+            + (last_touch_y - touch_point_1_y) * (last_touch_y - touch_point_1_y))
+            < ((last_touch_x - touch_point_2_x) * (last_touch_x - touch_point_2_x)
+                + (last_touch_y - touch_point_2_y) * (last_touch_y - touch_point_2_y))
+        {
             true => touch_point_1,
             false => touch_point_2,
         }
@@ -184,32 +173,36 @@ impl<'a> HardwareTouchInput<'a> {
         match point.status {
             TouchStatus::Touch => {
                 let position = PhysicalPosition::new(point.x.into(), point.y.into());
-                self.window_event_tx.send(WindowEvent::PointerPressed{
-                    position: position.to_logical(1.0),
-                    button: PointerEventButton::Left
-                }).await;
+                self.window_event_tx
+                    .send(WindowEvent::PointerPressed {
+                        position: position.to_logical(1.0),
+                        button: PointerEventButton::Left,
+                    })
+                    .await;
                 self.last_touch_point = point;
-            },
+            }
             TouchStatus::Stream => {
                 let position = PhysicalPosition::new(point.x.into(), point.y.into());
-                self.window_event_tx.send(WindowEvent::PointerMoved{
-                    position: position.to_logical(1.0),
-                }).await;
+                self.window_event_tx
+                    .send(WindowEvent::PointerMoved {
+                        position: position.to_logical(1.0),
+                    })
+                    .await;
                 self.last_touch_point = point;
-            },
-            TouchStatus::Release => {
-                match self.last_touch_point.status {
-                    TouchStatus::Release => {},
-                    _ => {
-                        let logical_position = PhysicalPosition::new(point.x.into(), point.y.into()); 
-                        self.window_event_tx.send(WindowEvent::PointerReleased{
-                            position: logical_position.to_logical(1.0),
-                            button: PointerEventButton::Left
-                        }).await;
-                        self.last_touch_point = point;
-                    }
-                }
             }
+            TouchStatus::Release => match self.last_touch_point.status {
+                TouchStatus::Release => {}
+                _ => {
+                    let logical_position = PhysicalPosition::new(point.x.into(), point.y.into());
+                    self.window_event_tx
+                        .send(WindowEvent::PointerReleased {
+                            position: logical_position.to_logical(1.0),
+                            button: PointerEventButton::Left,
+                        })
+                        .await;
+                    self.last_touch_point = point;
+                }
+            },
         };
     }
 
@@ -230,14 +223,14 @@ impl TouchInput for HardwareTouchInput<'_> {
         match data.touch_count {
             0 => {
                 self.process_one_point(data.points[0]).await;
-            },
+            }
             1 => {
                 self.process_one_point(data.points[0]).await;
-            },
+            }
             _ => {
                 let closest_point = self.find_closest_touch_point(data.points[0], data.points[1]);
                 self.process_one_point(closest_point).await;
-            },
+            }
         };
     }
 }

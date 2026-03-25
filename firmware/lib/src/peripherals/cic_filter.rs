@@ -105,10 +105,7 @@ mod test_cic_filter {
     #[test]
     fn test_cic_filter_all_ones_osr_8() {
         let test_data = vec![true; 50];
-        assert_eq!(
-            cic_filter_order_3(test_data, OversampleRatio::_8),
-            Ok(512)
-        );
+        assert_eq!(cic_filter_order_3(test_data, OversampleRatio::_8), Ok(512));
     }
 
     #[test]
@@ -117,10 +114,7 @@ mod test_cic_filter {
         for i in 0..25 {
             test_data[2 * i] = false;
         }
-        assert_eq!(
-            cic_filter_order_3(test_data, OversampleRatio::_8),
-            Ok(256)
-        );
+        assert_eq!(cic_filter_order_3(test_data, OversampleRatio::_8), Ok(256));
     }
 
     #[test]
@@ -147,7 +141,11 @@ mod test_cic_filter {
         );
     }
 
-    fn simulate_second_order_delta_sigma(input: f64, warmup: usize, num_samples: usize) -> Vec<bool> {
+    fn simulate_second_order_delta_sigma(
+        input: f64,
+        warmup: usize,
+        num_samples: usize,
+    ) -> Vec<bool> {
         let mut int1: f64 = 0.0;
         let mut int2: f64 = 0.0;
         let mut feedback: f64 = 0.0;

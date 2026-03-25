@@ -1,30 +1,23 @@
 mod cic_filter;
-mod pumps;
-mod outlets;
 pub(crate) mod dosing;
+mod outlets;
+mod pumps;
 use core::marker::PhantomData;
 
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 
-pub use cic_filter::{
-    InsufficientSamples,
-    OversampleRatio,
-    cic_filter_order_3
-};
+pub use crate::ui_types::{DosingPump, Pump};
+pub use cic_filter::{cic_filter_order_3, InsufficientSamples, OversampleRatio};
+pub use outlets::{OutletState, OutletStateList};
 pub use pumps::{
-    DosingPumpState, DosingPumpStateList, PumpController, HardwarePumpController, PumpError,
+    DosingPumpState, DosingPumpStateList, HardwarePumpController, PumpController, PumpError,
     CURRENT_CUTOFF,
 };
-pub use outlets::{
-    OutletState, OutletStateList,
-};
-pub use crate::ui_types::{DosingPump, Pump};
 
 pub mod rtc;
 
 mod sensors;
-pub use sensors::{SensorController, SensorReadRaw, SensorError};
-
+pub use sensors::{SensorController, SensorError, SensorReadRaw};
 
 pub type TreatmentControllerMutex<'a, Sensors, Pumps> =
     Mutex<NoopRawMutex, TreatmentController<'a, Sensors, Pumps>>;
@@ -46,9 +39,7 @@ pub struct TreatmentController<'a, Sensors: SensorReadRaw, Pumps: PumpController
     _phantom_lifetime: PhantomData<&'a str>,
 }
 
-impl<'a, Sensors: SensorReadRaw, Pumps: PumpController>
-    TreatmentController<'a, Sensors, Pumps>
-{
+impl<'a, Sensors: SensorReadRaw, Pumps: PumpController> TreatmentController<'a, Sensors, Pumps> {
     pub fn initialize(
         pump_controller: Pumps,
         sensor_controller: SensorController<'a, Sensors>,
@@ -59,6 +50,4 @@ impl<'a, Sensors: SensorReadRaw, Pumps: PumpController>
             _phantom_lifetime: PhantomData,
         }
     }
-
 }
-

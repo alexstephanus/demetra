@@ -9,13 +9,12 @@ cfg_if::cfg_if! {
 }
 use core::option::Option;
 use core::{cmp::min, fmt::Debug, marker::PhantomData};
-use embedded_storage::Storage;
 #[cfg(any(test, feature = "simulation"))]
 use embedded_storage::ReadStorage;
+use embedded_storage::Storage;
 use log::debug;
 use serde::{de::DeserializeOwned, Serialize};
 use thiserror::Error;
-
 
 use crate::config::calibration::types::TimestampedValue;
 
@@ -28,10 +27,7 @@ pub struct MisalignedAddress {
 #[derive(Error, Debug)]
 pub enum RingBufferError<T, E> {
     #[error("Failed to serialize record: {error}")]
-    SerializationError {
-        record: T,
-        error: serde_json::Error,
-    },
+    SerializationError { record: T, error: serde_json::Error },
     #[error("Failed to deserialize record: {error}")]
     DeserializationError {
         raw_bytes: Vec<u8>,
@@ -40,10 +36,7 @@ pub enum RingBufferError<T, E> {
     #[error("Flash storage error: {0:?}")]
     StorageError(E),
     #[error("Record too large: {size} bytes (max: {max_size} bytes)")]
-    RecordTooLarge {
-        size: usize,
-        max_size: usize,
-    },
+    RecordTooLarge { size: usize, max_size: usize },
     #[error("Too many chunks: {chunk_count} (max: {max_chunks})")]
     TooManyChunks {
         chunk_count: usize,
@@ -54,7 +47,9 @@ pub enum RingBufferError<T, E> {
         chunk_size: usize,
         max_chunk_size: usize,
     },
-    #[error("CRC mismatch at address 0x{address:08X}: stored 0x{stored:08X}, computed 0x{computed:08X}")]
+    #[error(
+        "CRC mismatch at address 0x{address:08X}: stored 0x{stored:08X}, computed 0x{computed:08X}"
+    )]
     CrcMismatch {
         address: u32,
         stored: u32,
@@ -132,7 +127,7 @@ pub struct RingBuffer<T, M, S, E> {
     flash: S,
     _record_type: PhantomData<T>,
     _metadata_type: PhantomData<M>,
-    _storage_error_type: PhantomData<E>
+    _storage_error_type: PhantomData<E>,
 }
 
 impl<T, M, S, E> RingBuffer<T, M, S, E>
@@ -146,10 +141,14 @@ where
     /// Record format: [Record Length: 4][Previous Record Length: 4][Payload CRC-32: 4][Metadata: M][JSON Data: T]
     pub fn new(start_address: u32, end_address: u32, flash: S) -> Result<Self, MisalignedAddress> {
         if !start_address.is_multiple_of(PARTITION_SIZE) {
-            return Err(MisalignedAddress { address: start_address });
+            return Err(MisalignedAddress {
+                address: start_address,
+            });
         }
         if !end_address.is_multiple_of(PARTITION_SIZE) {
-            return Err(MisalignedAddress { address: end_address });
+            return Err(MisalignedAddress {
+                address: end_address,
+            });
         }
 
         let mut ring_buffer = Self {
@@ -194,7 +193,10 @@ where
             match self.read_record(current) {
                 Ok(result) => return Ok(result),
                 Err(RingBufferError::CrcMismatch { address, .. }) => {
-                    log::warn!("CRC mismatch at 0x{:08X}, falling back to previous record", address);
+                    log::warn!(
+                        "CRC mismatch at 0x{:08X}, falling back to previous record",
+                        address
+                    );
                     match self.get_previous_record_address(current)? {
                         Some(prev) => current = prev,
                         None => return Ok(None),
@@ -209,7 +211,10 @@ where
         let record_body_bytes = match serde_json::to_vec(record) {
             Ok(bytes) => bytes,
             Err(error) => {
-                return Err(RingBufferError::SerializationError { record: record.clone(), error });
+                return Err(RingBufferError::SerializationError {
+                    record: record.clone(),
+                    error,
+                });
             }
         };
 
@@ -220,9 +225,7 @@ where
         } else {
             match self.get_next_record_address(self.latest_record_address)? {
                 Some(address) => address.0,
-                None => {
-                    self.start_address.0 + UNINITIALIZED_PAGE_OFFSET
-                }
+                None => self.start_address.0 + UNINITIALIZED_PAGE_OFFSET,
             }
         };
 
@@ -268,7 +271,8 @@ where
                     current_page_address + PAGE_METADATA_SIZE + self.pad_to_word(chunk_length)
                 };
 
-                self.flash.write(current_page_address, &[0xff; PARTITION_SIZE as usize])
+                self.flash
+                    .write(current_page_address, &[0xff; PARTITION_SIZE as usize])
                     .map_err(RingBufferError::StorageError)?;
 
                 self.write_page_metadata(
@@ -282,11 +286,13 @@ where
                 }
             }
 
-            self.flash.write(
-                address_to_write,
-                &record_bytes
-                    [bytes_written as usize..bytes_written as usize + chunk_length as usize],
-            ).map_err(RingBufferError::StorageError)?;
+            self.flash
+                .write(
+                    address_to_write,
+                    &record_bytes
+                        [bytes_written as usize..bytes_written as usize + chunk_length as usize],
+                )
+                .map_err(RingBufferError::StorageError)?;
             bytes_written += chunk_length;
             address_to_write = self.get_next_page_address(address_to_write).0;
         }
@@ -311,7 +317,10 @@ where
         RingBufferIterator::new_filtered(self, self.latest_record_address, predicate)
     }
 
-    fn read_record(&mut self, address: RecordAddress) -> Result<Option<(T, M)>, RingBufferError<T, E>> {
+    fn read_record(
+        &mut self,
+        address: RecordAddress,
+    ) -> Result<Option<(T, M)>, RingBufferError<T, E>> {
         let json_data_length = match self.get_record_length(address)? {
             None => return Ok(None),
             Some(length) => length,
@@ -349,10 +358,12 @@ where
                     max_chunk_size: MAX_CHUNK_SIZE as usize,
                 });
             }
-            self.flash.read(
-                address_to_read,
-                &mut record_bytes[bytes_read..bytes_read + chunk as usize],
-            ).map_err(RingBufferError::StorageError)?;
+            self.flash
+                .read(
+                    address_to_read,
+                    &mut record_bytes[bytes_read..bytes_read + chunk as usize],
+                )
+                .map_err(RingBufferError::StorageError)?;
             bytes_read += chunk as usize;
             address_to_read = self.get_next_page_address(address_to_read).0 + PAGE_METADATA_SIZE;
         }
@@ -442,7 +453,9 @@ where
         chunks
     }
 
-    fn find_latest_record_address(&mut self) -> Result<Option<(RecordAddress, u32)>, RingBufferError<T, E>> {
+    fn find_latest_record_address(
+        &mut self,
+    ) -> Result<Option<(RecordAddress, u32)>, RingBufferError<T, E>> {
         let latest_page = match self.get_last_written_page()? {
             None => return Ok(None),
             Some(metadata) => metadata,
@@ -459,9 +472,11 @@ where
     ) -> Result<(), RingBufferError<T, E>> {
         let id_bytes = record_id.to_le_bytes();
         let address_bytes = first_record_address.0.to_le_bytes();
-        self.flash.write(page_address.0, &id_bytes)
+        self.flash
+            .write(page_address.0, &id_bytes)
             .map_err(RingBufferError::StorageError)?;
-        self.flash.write(page_address.0 + 4, &address_bytes)
+        self.flash
+            .write(page_address.0 + 4, &address_bytes)
             .map_err(RingBufferError::StorageError)?;
         Ok(())
     }
@@ -479,11 +494,9 @@ where
                 let previous_page_address = self.get_previous_page_address(page.address.0);
                 match self.get_page_metadata(previous_page_address.0)? {
                     None => Ok(None),
-                    Some(previous_page) => self.find_latest_record_in_page(
-                        previous_page,
-                        base_id,
-                        records_counted,
-                    ),
+                    Some(previous_page) => {
+                        self.find_latest_record_in_page(previous_page, base_id, records_counted)
+                    }
                 }
             }
             false => {
@@ -507,12 +520,7 @@ where
                             }
                         }
                         Some(next_address) => match self.get_record_length(next_address)? {
-                            None => {
-                                return Ok(Some((
-                                    latest_record_address,
-                                    base_id + count + 1,
-                                )))
-                            }
+                            None => return Ok(Some((latest_record_address, base_id + count + 1))),
                             Some(_valid_length) => {
                                 latest_record_address = next_address;
                                 count += 1;
@@ -552,7 +560,10 @@ where
         }
     }
 
-    fn get_next_record_address(&mut self, record_address: RecordAddress) -> Result<Option<RecordAddress>, RingBufferError<T, E>> {
+    fn get_next_record_address(
+        &mut self,
+        record_address: RecordAddress,
+    ) -> Result<Option<RecordAddress>, RingBufferError<T, E>> {
         match self.get_record_length(record_address)? {
             Some(json_length) => {
                 debug!(
@@ -567,23 +578,28 @@ where
                 let mut next_record_address = record_address.0;
                 let chunks = self.chunk_record(total_record_length, record_address.0);
                 for _ in 0..(chunks.len() - 1) {
-                    next_record_address = self.get_next_page_address(next_record_address).0 + PAGE_METADATA_SIZE
+                    next_record_address =
+                        self.get_next_page_address(next_record_address).0 + PAGE_METADATA_SIZE
                 }
                 debug!(
                     "Returning new address: {}",
                     self.pad_to_word(next_record_address + chunks[chunks.len() - 1])
                 );
-                Ok(Some(RecordAddress(
-                    self.pad_to_word(next_record_address + chunks[chunks.len() - 1]),
-                )))
+                Ok(Some(RecordAddress(self.pad_to_word(
+                    next_record_address + chunks[chunks.len() - 1],
+                ))))
             }
             None => Ok(None),
         }
     }
 
-    fn get_record_length(&mut self, address: RecordAddress) -> Result<Option<u32>, RingBufferError<T, E>> {
+    fn get_record_length(
+        &mut self,
+        address: RecordAddress,
+    ) -> Result<Option<u32>, RingBufferError<T, E>> {
         let mut record_length_bytes = [0xffu8; 4];
-        self.flash.read(address.0, &mut record_length_bytes)
+        self.flash
+            .read(address.0, &mut record_length_bytes)
             .map_err(RingBufferError::StorageError)?;
         match Self::are_bytes_written(&record_length_bytes) {
             true => {
@@ -621,13 +637,18 @@ where
         PageAddress(current_page_address - PARTITION_SIZE)
     }
 
-    fn get_page_metadata(&mut self, address: u32) -> Result<Option<PageMetadata>, RingBufferError<T, E>> {
+    fn get_page_metadata(
+        &mut self,
+        address: u32,
+    ) -> Result<Option<PageMetadata>, RingBufferError<T, E>> {
         let page_start = address - (address % PARTITION_SIZE);
         let mut id_bytes = [0xffu8; 4];
         let mut first_record_bytes = [0xffu8; 4];
-        self.flash.read(page_start, &mut id_bytes)
+        self.flash
+            .read(page_start, &mut id_bytes)
             .map_err(RingBufferError::StorageError)?;
-        self.flash.read(page_start + 4, &mut first_record_bytes)
+        self.flash
+            .read(page_start + 4, &mut first_record_bytes)
             .map_err(RingBufferError::StorageError)?;
         match Self::are_bytes_written(&id_bytes) {
             false => Ok(None),
@@ -741,14 +762,24 @@ where
             match self.buffer.read_record(current) {
                 Ok(Some((record, metadata))) => {
                     self.current_address = match self.direction {
-                        IterDirection::Forward => match self.buffer.get_next_record_address(current) {
-                            Ok(addr) => addr,
-                            Err(e) => { log::error!("Storage error advancing iterator: {}", e); return None; }
-                        },
-                        IterDirection::Reverse => match self.buffer.get_previous_record_address(current) {
-                            Ok(addr) => addr,
-                            Err(e) => { log::error!("Storage error advancing iterator: {}", e); return None; }
-                        },
+                        IterDirection::Forward => {
+                            match self.buffer.get_next_record_address(current) {
+                                Ok(addr) => addr,
+                                Err(e) => {
+                                    log::error!("Storage error advancing iterator: {}", e);
+                                    return None;
+                                }
+                            }
+                        }
+                        IterDirection::Reverse => {
+                            match self.buffer.get_previous_record_address(current) {
+                                Ok(addr) => addr,
+                                Err(e) => {
+                                    log::error!("Storage error advancing iterator: {}", e);
+                                    return None;
+                                }
+                            }
+                        }
                     };
 
                     if let Some(ref predicate) = self.predicate {
@@ -765,13 +796,27 @@ where
                 Err(RingBufferError::CrcMismatch { address, .. }) => {
                     log::warn!("CRC mismatch at 0x{:08X}, skipping corrupt record", address);
                     self.current_address = match self.direction {
-                        IterDirection::Forward => match self.buffer.get_next_record_address(current) {
+                        IterDirection::Forward => {
+                            match self.buffer.get_next_record_address(current) {
+                                Ok(addr) => addr,
+                                Err(e) => {
+                                    log::error!(
+                                        "Storage error navigating past corrupt record: {}",
+                                        e
+                                    );
+                                    return None;
+                                }
+                            }
+                        }
+                        IterDirection::Reverse => match self
+                            .buffer
+                            .get_previous_record_address(current)
+                        {
                             Ok(addr) => addr,
-                            Err(e) => { log::error!("Storage error navigating past corrupt record: {}", e); return None; }
-                        },
-                        IterDirection::Reverse => match self.buffer.get_previous_record_address(current) {
-                            Ok(addr) => addr,
-                            Err(e) => { log::error!("Storage error navigating past corrupt record: {}", e); return None; }
+                            Err(e) => {
+                                log::error!("Storage error navigating past corrupt record: {}", e);
+                                return None;
+                            }
                         },
                     };
                 }
@@ -895,7 +940,8 @@ mod tests {
 
     fn get_test_ring_buffer(
         storage: Option<MockFlashStorage>,
-    ) -> RingBuffer<TestTimestampedRecord, TestMetadata, MockFlashStorage, MockFlashStorageError> {
+    ) -> RingBuffer<TestTimestampedRecord, TestMetadata, MockFlashStorage, MockFlashStorageError>
+    {
         let start_address = 0x0000;
         let end_address = 0x4000;
         let flash = match storage {
@@ -911,7 +957,8 @@ mod tests {
 
     fn get_simple_ring_buffer(
         storage: Option<MockFlashStorage>,
-    ) -> RingBuffer<TestTimestampedRecord, EmptyMetadata, MockFlashStorage, MockFlashStorageError> {
+    ) -> RingBuffer<TestTimestampedRecord, EmptyMetadata, MockFlashStorage, MockFlashStorageError>
+    {
         let start_address = 0x0000;
         let end_address = 0x4000;
         let flash = match storage {
@@ -958,7 +1005,9 @@ mod tests {
         let mut buffer = get_test_ring_buffer(None);
         let record = create_test_record("test_record", 1722581155825);
 
-        buffer.write_record(&record, TestMetadata { value: 42 }).unwrap();
+        buffer
+            .write_record(&record, TestMetadata { value: 42 })
+            .unwrap();
         let result = buffer.read_latest_record().unwrap().unwrap();
 
         assert_eq!(result.0, record);
@@ -971,8 +1020,12 @@ mod tests {
         let record1 = create_test_record("first", 1722581155825);
         let record2 = create_test_record("second", 1722581155826);
 
-        buffer.write_record(&record1, TestMetadata { value: 1 }).unwrap();
-        buffer.write_record(&record2, TestMetadata { value: 2 }).unwrap();
+        buffer
+            .write_record(&record1, TestMetadata { value: 1 })
+            .unwrap();
+        buffer
+            .write_record(&record2, TestMetadata { value: 2 })
+            .unwrap();
 
         let result = buffer.read_latest_record().unwrap().unwrap();
         assert_eq!(result.0, record2);
@@ -984,7 +1037,9 @@ mod tests {
         let mut buffer = get_test_ring_buffer(None);
         let record = create_large_record(5000, 1722581155825);
 
-        buffer.write_record(&record, TestMetadata { value: 99 }).unwrap();
+        buffer
+            .write_record(&record, TestMetadata { value: 99 })
+            .unwrap();
         let result = buffer.read_latest_record().unwrap().unwrap();
 
         assert_eq!(result.0, record);
@@ -996,7 +1051,9 @@ mod tests {
         let mut buffer = get_test_ring_buffer(None);
         let record = create_large_record(9000, 1722581155825);
 
-        buffer.write_record(&record, TestMetadata { value: 128 }).unwrap();
+        buffer
+            .write_record(&record, TestMetadata { value: 128 })
+            .unwrap();
         let result = buffer.read_latest_record().unwrap().unwrap();
 
         assert_eq!(result.0, record);
@@ -1010,8 +1067,12 @@ mod tests {
         let large_record = create_large_record(9000, 1722581155825);
         let small_record = create_large_record(8000, 1722581155826);
 
-        buffer.write_record(&large_record, TestMetadata { value: 1 }).unwrap();
-        buffer.write_record(&small_record, TestMetadata { value: 2 }).unwrap();
+        buffer
+            .write_record(&large_record, TestMetadata { value: 1 })
+            .unwrap();
+        buffer
+            .write_record(&small_record, TestMetadata { value: 2 })
+            .unwrap();
 
         let result = buffer.read_latest_record().unwrap().unwrap();
         assert_eq!(result.0, small_record);
@@ -1024,8 +1085,12 @@ mod tests {
         let record1 = create_test_record("first", 1722581155825);
         let record2 = create_test_record("second", 1722581155826);
 
-        buffer1.write_record(&record1, TestMetadata { value: 1 }).unwrap();
-        buffer1.write_record(&record2, TestMetadata { value: 2 }).unwrap();
+        buffer1
+            .write_record(&record1, TestMetadata { value: 1 })
+            .unwrap();
+        buffer1
+            .write_record(&record2, TestMetadata { value: 2 })
+            .unwrap();
 
         let mut buffer2 = get_test_ring_buffer(Some(buffer1.storage()));
         let result = buffer2.read_latest_record().unwrap().unwrap();
@@ -1042,19 +1107,27 @@ mod tests {
         let record4 = create_large_record(8000, 1722581155828);
 
         let mut buffer = get_test_ring_buffer(None);
-        buffer.write_record(&record1, TestMetadata { value: 1 }).unwrap();
+        buffer
+            .write_record(&record1, TestMetadata { value: 1 })
+            .unwrap();
 
         let mut buffer2 = get_test_ring_buffer(Some(buffer.storage()));
         assert_eq!(buffer2.read_latest_record().unwrap().unwrap().0, record1);
-        buffer2.write_record(&record2, TestMetadata { value: 2 }).unwrap();
+        buffer2
+            .write_record(&record2, TestMetadata { value: 2 })
+            .unwrap();
 
         let mut buffer3 = get_test_ring_buffer(Some(buffer2.storage()));
         assert_eq!(buffer3.read_latest_record().unwrap().unwrap().0, record2);
-        buffer3.write_record(&record3, TestMetadata { value: 3 }).unwrap();
+        buffer3
+            .write_record(&record3, TestMetadata { value: 3 })
+            .unwrap();
 
         let mut buffer4 = get_test_ring_buffer(Some(buffer3.storage()));
         assert_eq!(buffer4.read_latest_record().unwrap().unwrap().0, record3);
-        buffer4.write_record(&record4, TestMetadata { value: 4 }).unwrap();
+        buffer4
+            .write_record(&record4, TestMetadata { value: 4 })
+            .unwrap();
 
         let mut buffer5 = get_test_ring_buffer(Some(buffer4.storage()));
         let result = buffer5.read_latest_record().unwrap().unwrap();
@@ -1100,7 +1173,9 @@ mod tests {
         let mut buffer = get_test_ring_buffer(None);
         let record = create_test_record("single", 1722581155825);
 
-        buffer.write_record(&record, TestMetadata { value: 10 }).unwrap();
+        buffer
+            .write_record(&record, TestMetadata { value: 10 })
+            .unwrap();
 
         let mut iter = buffer.iter();
         let result = iter.next().unwrap();
@@ -1115,7 +1190,9 @@ mod tests {
         let mut buffer = get_test_ring_buffer(None);
         let record = create_test_record("single", 1722581155825);
 
-        buffer.write_record(&record, TestMetadata { value: 10 }).unwrap();
+        buffer
+            .write_record(&record, TestMetadata { value: 10 })
+            .unwrap();
 
         let mut iter = buffer.iter_reverse();
         let result = iter.next().unwrap();
@@ -1129,9 +1206,18 @@ mod tests {
     fn test_forward_iteration_multiple_records() {
         let mut buffer = get_test_ring_buffer(None);
         let records = vec![
-            (create_test_record("first", 1722581155825), TestMetadata { value: 1 }),
-            (create_test_record("second", 1722581155826), TestMetadata { value: 2 }),
-            (create_test_record("third", 1722581155827), TestMetadata { value: 3 }),
+            (
+                create_test_record("first", 1722581155825),
+                TestMetadata { value: 1 },
+            ),
+            (
+                create_test_record("second", 1722581155826),
+                TestMetadata { value: 2 },
+            ),
+            (
+                create_test_record("third", 1722581155827),
+                TestMetadata { value: 3 },
+            ),
         ];
 
         for (record, metadata) in &records {
@@ -1148,9 +1234,18 @@ mod tests {
     fn test_reverse_iteration_multiple_records() {
         let mut buffer = get_test_ring_buffer(None);
         let records = vec![
-            (create_test_record("first", 1722581155825), TestMetadata { value: 1 }),
-            (create_test_record("second", 1722581155826), TestMetadata { value: 2 }),
-            (create_test_record("third", 1722581155827), TestMetadata { value: 3 }),
+            (
+                create_test_record("first", 1722581155825),
+                TestMetadata { value: 1 },
+            ),
+            (
+                create_test_record("second", 1722581155826),
+                TestMetadata { value: 2 },
+            ),
+            (
+                create_test_record("third", 1722581155827),
+                TestMetadata { value: 3 },
+            ),
         ];
 
         for (record, metadata) in &records {
@@ -1180,8 +1275,12 @@ mod tests {
         let record1 = create_large_record(5000, 1722581155825);
         let record2 = create_large_record(6000, 1722581155826);
 
-        buffer.write_record(&record1, TestMetadata { value: 1 }).unwrap();
-        buffer.write_record(&record2, TestMetadata { value: 2 }).unwrap();
+        buffer
+            .write_record(&record1, TestMetadata { value: 1 })
+            .unwrap();
+        buffer
+            .write_record(&record2, TestMetadata { value: 2 })
+            .unwrap();
 
         let mut iter = buffer.iter_reverse();
         let result1 = iter.next().unwrap();
@@ -1211,7 +1310,9 @@ mod tests {
         let mut buffer = get_test_ring_buffer(None);
         let record = create_test_record("low_value", 1722581155825);
 
-        buffer.write_record(&record, TestMetadata { value: 50 }).unwrap();
+        buffer
+            .write_record(&record, TestMetadata { value: 50 })
+            .unwrap();
 
         let mut iter = buffer.iter_filtered(|meta| meta.value > 100);
         assert!(iter.next().is_none());
@@ -1221,20 +1322,33 @@ mod tests {
     fn test_filtered_iteration_by_value() {
         let mut buffer = get_test_ring_buffer(None);
         let records_and_metadata = vec![
-            (create_test_record("low1", 1722581155825), TestMetadata { value: 10 }),
-            (create_test_record("high1", 1722581155826), TestMetadata { value: 150 }),
-            (create_test_record("low2", 1722581155827), TestMetadata { value: 20 }),
-            (create_test_record("high2", 1722581155828), TestMetadata { value: 200 }),
-            (create_test_record("mid", 1722581155829), TestMetadata { value: 100 }),
+            (
+                create_test_record("low1", 1722581155825),
+                TestMetadata { value: 10 },
+            ),
+            (
+                create_test_record("high1", 1722581155826),
+                TestMetadata { value: 150 },
+            ),
+            (
+                create_test_record("low2", 1722581155827),
+                TestMetadata { value: 20 },
+            ),
+            (
+                create_test_record("high2", 1722581155828),
+                TestMetadata { value: 200 },
+            ),
+            (
+                create_test_record("mid", 1722581155829),
+                TestMetadata { value: 100 },
+            ),
         ];
 
         for (record, metadata) in &records_and_metadata {
             buffer.write_record(&record, *metadata).unwrap();
         }
 
-        let high_values: Vec<_> = buffer
-            .iter_filtered(|meta| meta.value > 100)
-            .collect();
+        let high_values: Vec<_> = buffer.iter_filtered(|meta| meta.value > 100).collect();
 
         assert_eq!(high_values.len(), 2);
         assert_eq!(high_values[0].0.id, "high2");
@@ -1249,13 +1363,17 @@ mod tests {
         let large_record2 = create_large_record(8000, 1722581155826);
         let small_record = create_test_record("small", 1722581155827);
 
-        buffer.write_record(&large_record1, TestMetadata { value: 100 }).unwrap();
-        buffer.write_record(&large_record2, TestMetadata { value: 50 }).unwrap();
-        buffer.write_record(&small_record, TestMetadata { value: 100 }).unwrap();
+        buffer
+            .write_record(&large_record1, TestMetadata { value: 100 })
+            .unwrap();
+        buffer
+            .write_record(&large_record2, TestMetadata { value: 50 })
+            .unwrap();
+        buffer
+            .write_record(&small_record, TestMetadata { value: 100 })
+            .unwrap();
 
-        let filtered: Vec<_> = buffer
-            .iter_filtered(|meta| meta.value == 100)
-            .collect();
+        let filtered: Vec<_> = buffer.iter_filtered(|meta| meta.value == 100).collect();
 
         assert_eq!(filtered.len(), 2);
         assert_eq!(filtered[0].0.id, "small");
@@ -1273,18 +1391,21 @@ mod tests {
 
         for i in 0..record_count {
             let record = create_test_record(&format!("record_{}", i), 1722581155825 + i);
-            let metadata = TestMetadata { value: if i % 4 == 0 { 200 } else { 50 } };
+            let metadata = TestMetadata {
+                value: if i % 4 == 0 { 200 } else { 50 },
+            };
             buffer.write_record(&record, metadata).unwrap();
         }
 
         let result = buffer.read_latest_record().unwrap().unwrap();
         assert_eq!(result.0.id, format!("record_{}", record_count - 1));
 
-        let high_count = buffer
-            .iter_filtered(|meta| meta.value == 200)
-            .count();
+        let high_count = buffer.iter_filtered(|meta| meta.value == 200).count();
         assert!(high_count > 0, "Should have some high-value records");
-        assert!(high_count <= 25, "Should not exceed total high-value records written");
+        assert!(
+            high_count <= 25,
+            "Should not exceed total high-value records written"
+        );
     }
 
     #[test]
@@ -1298,14 +1419,19 @@ mod tests {
             } else {
                 create_large_record(3000, 1722581155825 + i)
             };
-            buffer.write_record(&record, TestMetadata { value: i as u8 }).unwrap();
+            buffer
+                .write_record(&record, TestMetadata { value: i as u8 })
+                .unwrap();
             written_records.push(record);
         }
 
         let all_records: Vec<_> = buffer.iter_reverse().collect();
 
         assert!(all_records.len() > 0, "Should have at least some records");
-        assert!(all_records.len() <= 20, "Should not have more records than written");
+        assert!(
+            all_records.len() <= 20,
+            "Should not have more records than written"
+        );
 
         let num_survived = all_records.len();
         let start_index = 20 - num_survived;
@@ -1334,9 +1460,18 @@ mod tests {
         let mut buffer = get_test_ring_buffer(None);
 
         let records_and_metadata = vec![
-            (create_test_record("first", 1722581155825), TestMetadata { value: 1 }),
-            (create_test_record("second", 1722581155826), TestMetadata { value: 100 }),
-            (create_test_record("third", 1722581155827), TestMetadata { value: 3 }),
+            (
+                create_test_record("first", 1722581155825),
+                TestMetadata { value: 1 },
+            ),
+            (
+                create_test_record("second", 1722581155826),
+                TestMetadata { value: 100 },
+            ),
+            (
+                create_test_record("third", 1722581155827),
+                TestMetadata { value: 3 },
+            ),
         ];
 
         for (record, metadata) in &records_and_metadata {
@@ -1370,7 +1505,9 @@ mod tests {
             id: "Special chars: 你好 🦀 \n\t\r\"\\".to_string(),
         };
 
-        buffer.write_record(&record, TestMetadata { value: 1 }).unwrap();
+        buffer
+            .write_record(&record, TestMetadata { value: 1 })
+            .unwrap();
         let result = buffer.read_latest_record().unwrap().unwrap();
 
         assert_eq!(result.0, record);
@@ -1386,7 +1523,9 @@ mod tests {
 
         let record = create_large_record(target_json_size, 1722581155825);
 
-        buffer.write_record(&record, TestMetadata { value: 1 }).unwrap();
+        buffer
+            .write_record(&record, TestMetadata { value: 1 })
+            .unwrap();
         let result = buffer.read_latest_record().unwrap().unwrap();
 
         assert_eq!(result.0.id.len(), target_json_size);
@@ -1397,7 +1536,9 @@ mod tests {
         let mut buffer = get_test_ring_buffer(None);
 
         let almost_full_record = create_large_record(10000, 1722581155825);
-        buffer.write_record(&almost_full_record, TestMetadata { value: 0 }).unwrap();
+        buffer
+            .write_record(&almost_full_record, TestMetadata { value: 0 })
+            .unwrap();
 
         let mut expected_records = Vec::new();
         let mut expected_values = Vec::new();
@@ -1405,7 +1546,9 @@ mod tests {
         for i in 0..6 {
             let record = create_large_record(1500, 1722581155826 + i);
             let value = if i % 2 == 0 { 50 } else { 150 };
-            buffer.write_record(&record, TestMetadata { value }).unwrap();
+            buffer
+                .write_record(&record, TestMetadata { value })
+                .unwrap();
             expected_records.push(record);
             expected_values.push(value);
         }
@@ -1413,8 +1556,14 @@ mod tests {
         let collected_records: Vec<_> = buffer.iter_reverse().collect();
 
         let num_collected = collected_records.len();
-        assert!(num_collected > 0, "Should have at least some records after wrap-around");
-        assert!(num_collected <= 6, "Should not have more records than we wrote");
+        assert!(
+            num_collected > 0,
+            "Should have at least some records after wrap-around"
+        );
+        assert!(
+            num_collected <= 6,
+            "Should not have more records than we wrote"
+        );
 
         for (i, (record, metadata)) in collected_records.iter().enumerate() {
             let expected_index = (expected_records.len() - 1) - i;
@@ -1441,7 +1590,11 @@ mod tests {
             .enumerate()
         {
             assert_eq!(old_record.id, new_record.id, "Record {} should match", i);
-            assert_eq!(old_meta.value, new_meta.value, "Metadata {} should match", i);
+            assert_eq!(
+                old_meta.value, new_meta.value,
+                "Metadata {} should match",
+                i
+            );
         }
 
         let new_latest = new_buffer.read_latest_record().unwrap().unwrap();
@@ -1449,7 +1602,9 @@ mod tests {
         assert_eq!(new_latest.1.value, 150);
 
         let final_record = create_test_record("post_reload_record", 1722581155831);
-        new_buffer.write_record(&final_record, TestMetadata { value: 99 }).unwrap();
+        new_buffer
+            .write_record(&final_record, TestMetadata { value: 99 })
+            .unwrap();
 
         let final_latest = new_buffer.read_latest_record().unwrap().unwrap();
         assert_eq!(final_latest.0.id, "post_reload_record");

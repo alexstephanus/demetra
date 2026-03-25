@@ -69,12 +69,9 @@ impl Default for Temperature {
 // TODO: Use better floating-point comparisons
 #[cfg(test)]
 mod tests {
-    use proptest::{
-        prop_assert,
-        proptest,
-    };
     use super::*;
     use crate::units::Resistance;
+    use proptest::{prop_assert, proptest};
 
     proptest! {
         #[test]
@@ -97,7 +94,8 @@ mod tests {
     #[case(30.0, 8_025.59)]
     #[case(35.0, 6_487.15)]
     fn test_from_resistance_beta_3976(#[case] expected_temperature: f32, #[case] resistance: f32) {
-        let computed_temperature = Temperature::from_resistance(Resistance::from_ohms(resistance), 3976.0);
+        let computed_temperature =
+            Temperature::from_resistance(Resistance::from_ohms(resistance), 3976.0);
         assert!(
             (computed_temperature.celsius() - expected_temperature).abs() < 0.01,
             "Resistance of {:?} should produce {:?}C for beta 3976, got {:?}",

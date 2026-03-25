@@ -5,8 +5,8 @@ pub mod sensor;
 
 use chrono::{DateTime, Utc};
 use core::fmt::Debug;
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embedded_storage::Storage;
-use embassy_sync::{channel::Channel, blocking_mutex::raw::CriticalSectionRawMutex};
 
 use crate::{
     config::device_config::DeviceConfig,
@@ -123,19 +123,20 @@ ui_actions!(
 pub(crate) mod test_helpers {
     use std::sync::{Arc, Mutex as StdMutex};
 
-    use chrono::{DateTime, Utc};
+    use super::{MessageContext, UiMessage};
     use crate::{
         config::device_config::DeviceConfig,
         peripherals::{
             rtc::{RealTimeClock, RtcError},
-            PumpController, PumpError, SensorReadRaw, SensorError,
-            SensorController, TreatmentController,
-            Pump,
+            Pump, PumpController, PumpError, SensorController, SensorError, SensorReadRaw,
+            TreatmentController,
         },
-        storage::ring_buffer::{EmptyMetadata, MockFlashStorage, MockFlashStorageError, RingBuffer},
+        storage::ring_buffer::{
+            EmptyMetadata, MockFlashStorage, MockFlashStorageError, RingBuffer,
+        },
         ui_types::{MainWindow, SensorType},
     };
-    use super::{MessageContext, UiMessage};
+    use chrono::{DateTime, Utc};
 
     pub struct StubRtc;
 
@@ -151,8 +152,12 @@ pub(crate) mod test_helpers {
     pub struct StubSensors;
 
     impl SensorReadRaw for StubSensors {
-        async fn turn_sensors_on(&mut self) -> Result<(), SensorError> { Ok(()) }
-        async fn turn_sensors_off(&mut self) -> Result<(), SensorError> { Ok(()) }
+        async fn turn_sensors_on(&mut self) -> Result<(), SensorError> {
+            Ok(())
+        }
+        async fn turn_sensors_off(&mut self) -> Result<(), SensorError> {
+            Ok(())
+        }
         async fn read_sensor_raw(&mut self, sensor: SensorType) -> Result<f32, SensorError> {
             Err(SensorError::HardwareReadFailure(sensor))
         }
@@ -164,35 +169,50 @@ pub(crate) mod test_helpers {
     pub struct StubPumps;
 
     impl PumpController for StubPumps {
-        async fn enable_pump(&mut self, _pump: &Pump) -> Result<(), PumpError> { Ok(()) }
-        async fn disable_pump(&mut self, _pump: &Pump) -> Result<(), PumpError> { Ok(()) }
-        async fn read_current(&mut self, _pump: &Pump) -> Result<f32, PumpError> { Ok(0.0) }
-        async fn turn_off_all(&mut self) -> Result<(), PumpError> { Ok(()) }
-        fn is_pump_enabled(&mut self, _pump: &Pump) -> Result<bool, PumpError> { Ok(false) }
+        async fn enable_pump(&mut self, _pump: &Pump) -> Result<(), PumpError> {
+            Ok(())
+        }
+        async fn disable_pump(&mut self, _pump: &Pump) -> Result<(), PumpError> {
+            Ok(())
+        }
+        async fn read_current(&mut self, _pump: &Pump) -> Result<f32, PumpError> {
+            Ok(0.0)
+        }
+        async fn turn_off_all(&mut self) -> Result<(), PumpError> {
+            Ok(())
+        }
+        fn is_pump_enabled(&mut self, _pump: &Pump) -> Result<bool, PumpError> {
+            Ok(false)
+        }
         fn enable_relay(&mut self) {}
         fn kill_relay(&mut self) {}
     }
 
-    pub fn mock_ring_buffer() -> RingBuffer<DeviceConfig, EmptyMetadata, MockFlashStorage, MockFlashStorageError> {
+    pub fn mock_ring_buffer(
+    ) -> RingBuffer<DeviceConfig, EmptyMetadata, MockFlashStorage, MockFlashStorageError> {
         let start_address = 0x0000;
         let end_address = 0x4000;
         RingBuffer::<DeviceConfig, EmptyMetadata, MockFlashStorage, MockFlashStorageError>::new(
             start_address,
             end_address,
             MockFlashStorage::new(start_address, end_address, None),
-        ).expect("test ring buffer addresses must be page-aligned")
+        )
+        .expect("test ring buffer addresses must be page-aligned")
     }
 
     pub type TestTreatmentController<'a> = TreatmentController<'a, StubSensors, StubPumps>;
     pub type TestMessageContext<'a, 'b> = MessageContext<
-        'a, 'b, StubRtc, StubSensors, StubPumps, MockFlashStorage, MockFlashStorageError,
+        'a,
+        'b,
+        StubRtc,
+        StubSensors,
+        StubPumps,
+        MockFlashStorage,
+        MockFlashStorageError,
     >;
 
     pub fn mock_treatment_controller<'a>() -> TestTreatmentController<'a> {
-        TreatmentController::initialize(
-            StubPumps,
-            SensorController::new(StubSensors),
-        )
+        TreatmentController::initialize(StubPumps, SensorController::new(StubSensors))
     }
 
     pub struct TestHarness {
@@ -216,10 +236,7 @@ pub(crate) mod test_helpers {
             std::mem::take(&mut *self.messages.lock().unwrap())
         }
 
-        pub async fn dispatch_all(
-            &self,
-            ctx: &mut TestMessageContext<'_, '_>,
-        ) {
+        pub async fn dispatch_all(&self, ctx: &mut TestMessageContext<'_, '_>) {
             for msg in self.take_messages() {
                 super::dispatch(msg, ctx).await;
             }
@@ -236,9 +253,8 @@ mod tests {
         state::get_system_time,
         storage::get_device_config,
         ui_types::{
-            AppUiState, ConductivityDisplayUnit, PumpUiState, SensorType, SensorUiState,
-            Status, TemperatureDisplayUnit, UiTreatmentSolution, TreatmentSolutionType,
-            WorkflowUiState,
+            AppUiState, ConductivityDisplayUnit, PumpUiState, SensorType, SensorUiState, Status,
+            TemperatureDisplayUnit, TreatmentSolutionType, UiTreatmentSolution, WorkflowUiState,
         },
         units::Volume,
     };
@@ -270,7 +286,9 @@ mod tests {
         };
 
         let (vol_3s, vol_10s, vol_30s) = (1.5, 5.0, 15.0);
-        harness.ui.global::<WorkflowUiState>()
+        harness
+            .ui
+            .global::<WorkflowUiState>()
             .invoke_save_dosing_pump_calibration(pump_number, vol_3s, vol_10s, vol_30s);
         harness.dispatch_all(&mut ctx).await;
 
@@ -281,7 +299,11 @@ mod tests {
             get_system_time(0).await,
         );
         assert_eq!(
-            get_device_config().await.pumps.get_dosing_pump_state(pump).calibration,
+            get_device_config()
+                .await
+                .pumps
+                .get_dosing_pump_state(pump)
+                .calibration,
             expected,
         );
     }
@@ -301,12 +323,18 @@ mod tests {
             config_buffer: &mut buffer,
         };
 
-        harness.ui.global::<PumpUiState>()
+        harness
+            .ui
+            .global::<PumpUiState>()
             .invoke_rename_pump(0, "New Dose One".into());
         harness.dispatch_all(&mut ctx).await;
 
         assert_eq!(
-            get_device_config().await.pumps.get_dosing_pump_state(DosingPump::DoseOne).name,
+            get_device_config()
+                .await
+                .pumps
+                .get_dosing_pump_state(DosingPump::DoseOne)
+                .name,
             Some(slint::SharedString::from("New Dose One"))
         );
     }
@@ -328,19 +356,43 @@ mod tests {
 
         harness.ui.global::<PumpUiState>().invoke_enable_pump(0);
         harness.dispatch_all(&mut ctx).await;
-        assert!(get_device_config().await.pumps.get_dosing_pump_state(DosingPump::DoseOne).enabled);
+        assert!(
+            get_device_config()
+                .await
+                .pumps
+                .get_dosing_pump_state(DosingPump::DoseOne)
+                .enabled
+        );
 
         harness.ui.global::<PumpUiState>().invoke_enable_pump(0);
         harness.dispatch_all(&mut ctx).await;
-        assert!(get_device_config().await.pumps.get_dosing_pump_state(DosingPump::DoseOne).enabled);
+        assert!(
+            get_device_config()
+                .await
+                .pumps
+                .get_dosing_pump_state(DosingPump::DoseOne)
+                .enabled
+        );
 
         harness.ui.global::<PumpUiState>().invoke_disable_pump(0);
         harness.dispatch_all(&mut ctx).await;
-        assert!(!get_device_config().await.pumps.get_dosing_pump_state(DosingPump::DoseOne).enabled);
+        assert!(
+            !get_device_config()
+                .await
+                .pumps
+                .get_dosing_pump_state(DosingPump::DoseOne)
+                .enabled
+        );
 
         harness.ui.global::<PumpUiState>().invoke_disable_pump(0);
         harness.dispatch_all(&mut ctx).await;
-        assert!(!get_device_config().await.pumps.get_dosing_pump_state(DosingPump::DoseOne).enabled);
+        assert!(
+            !get_device_config()
+                .await
+                .pumps
+                .get_dosing_pump_state(DosingPump::DoseOne)
+                .enabled
+        );
     }
 
     #[tokio::test]
@@ -358,21 +410,33 @@ mod tests {
             config_buffer: &mut buffer,
         };
 
-        harness.ui.global::<PumpUiState>()
+        harness
+            .ui
+            .global::<PumpUiState>()
             .invoke_set_dosing_pump_status(0, Status::Error);
         harness.dispatch_all(&mut ctx).await;
 
         assert_eq!(
-            get_device_config().await.pumps.get_dosing_pump_state(DosingPump::DoseOne).status,
+            get_device_config()
+                .await
+                .pumps
+                .get_dosing_pump_state(DosingPump::DoseOne)
+                .status,
             Status::Error,
         );
 
-        harness.ui.global::<PumpUiState>()
+        harness
+            .ui
+            .global::<PumpUiState>()
             .invoke_set_dosing_pump_status(0, Status::Ok);
         harness.dispatch_all(&mut ctx).await;
 
         assert_eq!(
-            get_device_config().await.pumps.get_dosing_pump_state(DosingPump::DoseOne).status,
+            get_device_config()
+                .await
+                .pumps
+                .get_dosing_pump_state(DosingPump::DoseOne)
+                .status,
             Status::Ok,
         );
     }
@@ -392,15 +456,24 @@ mod tests {
             config_buffer: &mut buffer,
         };
 
-        harness.ui.global::<PumpUiState>()
-            .invoke_update_treatment_solution(0, UiTreatmentSolution {
-                solution_type: TreatmentSolutionType::PhDown,
-                solution_strength: 4.0,
-            });
+        harness
+            .ui
+            .global::<PumpUiState>()
+            .invoke_update_treatment_solution(
+                0,
+                UiTreatmentSolution {
+                    solution_type: TreatmentSolutionType::PhDown,
+                    solution_strength: 4.0,
+                },
+            );
         harness.dispatch_all(&mut ctx).await;
 
         assert_eq!(
-            get_device_config().await.pumps.get_dosing_pump_state(DosingPump::DoseOne).treatment_solution,
+            get_device_config()
+                .await
+                .pumps
+                .get_dosing_pump_state(DosingPump::DoseOne)
+                .treatment_solution,
             UiTreatmentSolution {
                 solution_type: TreatmentSolutionType::PhDown,
                 solution_strength: 4.0,
@@ -423,7 +496,9 @@ mod tests {
             config_buffer: &mut buffer,
         };
 
-        harness.ui.global::<AppUiState>()
+        harness
+            .ui
+            .global::<AppUiState>()
             .invoke_set_conductivity_display_unit(ConductivityDisplayUnit::UsPerCm);
         harness.dispatch_all(&mut ctx).await;
 
@@ -448,7 +523,9 @@ mod tests {
             config_buffer: &mut buffer,
         };
 
-        harness.ui.global::<AppUiState>()
+        harness
+            .ui
+            .global::<AppUiState>()
             .invoke_set_temperature_display_unit(TemperatureDisplayUnit::Fahrenheit);
         harness.dispatch_all(&mut ctx).await;
 
@@ -476,7 +553,10 @@ mod tests {
         harness.ui.global::<AppUiState>().invoke_set_tank_size(10.0);
         harness.dispatch_all(&mut ctx).await;
 
-        assert_eq!(get_device_config().await.tank_size, Volume::from_liters(10.0));
+        assert_eq!(
+            get_device_config().await.tank_size,
+            Volume::from_liters(10.0)
+        );
     }
 
     #[tokio::test]
@@ -494,10 +574,16 @@ mod tests {
             config_buffer: &mut buffer,
         };
 
-        harness.ui.global::<SensorUiState>().invoke_set_thermistor_beta(4000.0);
+        harness
+            .ui
+            .global::<SensorUiState>()
+            .invoke_set_thermistor_beta(4000.0);
         harness.dispatch_all(&mut ctx).await;
 
-        assert_eq!(get_device_config().await.temperature.beta_value, Some(4000.0));
+        assert_eq!(
+            get_device_config().await.temperature.beta_value,
+            Some(4000.0)
+        );
     }
 
     #[tokio::test]
@@ -515,11 +601,17 @@ mod tests {
             config_buffer: &mut buffer,
         };
 
-        harness.ui.global::<SensorUiState>().invoke_enable_sensor(SensorType::Ph);
+        harness
+            .ui
+            .global::<SensorUiState>()
+            .invoke_enable_sensor(SensorType::Ph);
         harness.dispatch_all(&mut ctx).await;
         assert!(get_device_config().await.ph.enabled);
 
-        harness.ui.global::<SensorUiState>().invoke_disable_sensor(SensorType::Ph);
+        harness
+            .ui
+            .global::<SensorUiState>()
+            .invoke_disable_sensor(SensorType::Ph);
         harness.dispatch_all(&mut ctx).await;
         assert!(!get_device_config().await.ph.enabled);
     }
@@ -539,8 +631,14 @@ mod tests {
             config_buffer: &mut buffer,
         };
 
-        harness.ui.global::<SensorUiState>().invoke_set_sensor_min_value(SensorType::Ph, 5.5);
-        harness.ui.global::<SensorUiState>().invoke_set_sensor_max_value(SensorType::Ph, 7.5);
+        harness
+            .ui
+            .global::<SensorUiState>()
+            .invoke_set_sensor_min_value(SensorType::Ph, 5.5);
+        harness
+            .ui
+            .global::<SensorUiState>()
+            .invoke_set_sensor_max_value(SensorType::Ph, 7.5);
         harness.dispatch_all(&mut ctx).await;
 
         let config = get_device_config().await;
