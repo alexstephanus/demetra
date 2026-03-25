@@ -47,15 +47,13 @@ fn keyboard_backspace(existing_value: SharedString) -> SharedString {
 pub fn register_global_keypad_callbacks(app_window: &MainWindow) {
     let app_config = app_window.global::<AppUiState>();
 
-    app_config.on_keypad_append_digit(|digit, current_value| append_digit(digit, current_value));
+    app_config.on_keypad_append_digit(append_digit);
 
-    app_config.on_keypad_backspace(|current_value| backspace(current_value));
+    app_config.on_keypad_backspace(backspace);
 
-    app_config.on_keyboard_append_character(|character, current_value| {
-        append_character(character, current_value)
-    });
+    app_config.on_keyboard_append_character(append_character);
 
-    app_config.on_keyboard_backspace(|current_value| keyboard_backspace(current_value));
+    app_config.on_keyboard_backspace(keyboard_backspace);
 }
 
 #[cfg(test)]
