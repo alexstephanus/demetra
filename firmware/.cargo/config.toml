@@ -1,8 +1,8 @@
 [alias]
 xtask = 'run -p xtask --'
-unit-test = 'test -q -p lib --target=x86_64-unknown-linux-gnu --features emulation --profile test-fast'
+unit-test = 'test -q -p lib --target=x86_64-unknown-linux-gnu --features emulation'
 sim = 'run -p simulation --target=x86_64-unknown-linux-gnu'
-unit-test-mac = 'test -p lib --release --target=aarch64-apple-darwin --features emulation'
+unit-test-mac = 'test -q -p lib --target=aarch64-apple-darwin --features emulation'
 check-chip = 'check -p chip --target=xtensa-esp32s3-none-elf -Zbuild-std=core,alloc'
 build-chip = 'build -p chip --target=xtensa-esp32s3-none-elf -Z build-std=core,alloc'
 build-chip-release = 'build -p chip --release --target=xtensa-esp32s3-none-elf -Z build-std=core,alloc'

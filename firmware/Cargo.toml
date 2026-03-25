@@ -38,14 +38,10 @@ opt-level = 3
 overflow-checks = false
 
 [profile.dev]
-debug = true    # Symbols are nice and they don't increase the size on Flash
-opt-level = "z"
-incremental = true
-
-[profile.test-fast]
-inherits = "dev"
+debug = true
 opt-level = 0
 codegen-units = 256
+incremental = true
 
 [build-dependencies]
 slint-build = "1.15.1"
