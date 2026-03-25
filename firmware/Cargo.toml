@@ -42,6 +42,11 @@ debug = true    # Symbols are nice and they don't increase the size on Flash
 opt-level = "z"
 incremental = true
 
+[profile.test-fast]
+inherits = "dev"
+opt-level = 0
+codegen-units = 256
+
 [build-dependencies]
 slint-build = "1.15.1"
 

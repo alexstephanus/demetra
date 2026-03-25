@@ -3,9 +3,6 @@ set -e
 
 cd "$(git rev-parse --show-toplevel)/firmware"
 
-echo "Running cargo check-lib..."
-cargo check-lib
-
 echo "Running cargo lint..."
 cargo lint
 

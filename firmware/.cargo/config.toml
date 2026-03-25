@@ -1,15 +1,12 @@
 [alias]
 xtask = 'run -p xtask --'
-check-lib = 'check -p lib --target=x86_64-unknown-linux-gnu --features emulation --release -Zbuild-std=core,alloc,std'
-unit-test = 'test -q -p lib --target=x86_64-unknown-linux-gnu --features emulation -Z build-std=core,alloc,std'
-unit-test-fast = 'test -q -p lib --target=x86_64-unknown-linux-gnu --features emulation -Z build-std=core,alloc,std'
-failed-test = 'test -p lib --lib --target=x86_64-unknown-linux-gnu --features emulation -Z build-std=core,alloc,std'
-sim = 'run -p simulation --target=x86_64-unknown-linux-gnu -Z build-std=std'
+unit-test = 'test -q -p lib --target=x86_64-unknown-linux-gnu --features emulation --profile test-fast'
+sim = 'run -p simulation --target=x86_64-unknown-linux-gnu'
 unit-test-mac = 'test -p lib --release --target=aarch64-apple-darwin --features emulation'
 check-chip = 'check -p chip --target=xtensa-esp32s3-none-elf -Zbuild-std=core,alloc'
-build-chip = 'build -p chip --target=xtensa-esp32s3-none-elf'
+build-chip = 'build -p chip --target=xtensa-esp32s3-none-elf -Z build-std=core,alloc'
 build-chip-release = 'build -p chip --release --target=xtensa-esp32s3-none-elf -Z build-std=core,alloc'
-lint = 'clippy -p lib --target=x86_64-unknown-linux-gnu --features emulation -Z build-std=core,alloc,std -- -D warnings'
+lint = 'clippy -p lib --target=x86_64-unknown-linux-gnu --features emulation -- -D warnings'
 flash-chip = 'run -p chip --target=xtensa-esp32s3-none-elf --release -Z build-std=core,alloc'
 
 [target.'cfg(target_arch = "xtensa")']
@@ -34,9 +31,6 @@ rustflags = [
   # "-C", "link-arg=-Wl,-Tlinkall.x",
   # "-C", "link-arg=-nostartfiles",
 ]
-
-[unstable]
-build-std = ["alloc", "core"]
 
 # CHRONO_TZ_TIMEZONE_FILTER currently just supports America/Los_Angeles,
 # because embedding the full tz database is too space-intensive atm (600kB).

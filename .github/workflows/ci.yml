@@ -45,12 +45,6 @@ jobs:
         run: cargo fmt --all -- --check
         working-directory: ./firmware
 
-      - name: Run cargo check
-        id: check
-        continue-on-error: true
-        run: cargo check-lib
-        working-directory: ./firmware
-
       - name: Run cargo clippy
         id: clippy
         continue-on-error: true
@@ -67,7 +61,6 @@ jobs:
         run: |
           failed=""
           [ "${{ steps.fmt.outcome }}" = "failure" ] && failed="$failed fmt"
-          [ "${{ steps.check.outcome }}" = "failure" ] && failed="$failed check"
           [ "${{ steps.clippy.outcome }}" = "failure" ] && failed="$failed clippy"
           [ "${{ steps.test.outcome }}" = "failure" ] && failed="$failed test"
           if [ -n "$failed" ]; then
