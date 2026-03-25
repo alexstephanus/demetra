@@ -6,9 +6,9 @@ cfg_if::cfg_if! {
     }
 }
 
-use slint::SharedString;
-use crate::ui_types::{Outlet, OutletMode, Status};
 use crate::config::outlet_schedule::OutletSchedule;
+use crate::ui_types::{Outlet, OutletMode, Status};
+use slint::SharedString;
 
 impl Outlet {
     pub fn to_int(&self) -> usize {

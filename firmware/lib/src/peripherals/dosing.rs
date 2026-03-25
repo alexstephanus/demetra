@@ -1,15 +1,16 @@
-
 use libm::powf;
 
 use crate::{
     config::{
-        calibration::{NumericRange, OrpMeasurementPoint, PhMeasurementPoint, PhValue, RangePosition},
+        calibration::{
+            NumericRange, OrpMeasurementPoint, PhMeasurementPoint, PhValue, RangePosition,
+        },
         device_config::DeviceConfig,
     },
+    logging::LoggableError,
     peripherals::{
         Pump, PumpController, PumpError, SensorReadRaw, TreatmentControllerMutex, CURRENT_CUTOFF,
     },
-    logging::LoggableError,
     tasks::SensorReadings,
     units::{Conductivity, Volume},
 };
@@ -164,10 +165,7 @@ pub(crate) async fn stir_and_wait<Sensors: SensorReadRaw, Pumps: PumpController>
     }
 }
 
-pub(crate) async fn dose_ec_step<
-    Sensors: SensorReadRaw,
-    Pumps: PumpController,
->(
+pub(crate) async fn dose_ec_step<Sensors: SensorReadRaw, Pumps: PumpController>(
     tc: &TreatmentControllerMutex<'_, Sensors, Pumps>,
     config: &crate::config::device_config::DeviceConfig,
     current_ec: Conductivity,
@@ -179,7 +177,8 @@ pub(crate) async fn dose_ec_step<
 
     let ec_range = NumericRange::new(config.ec.min_acceptable, config.ec.max_acceptable);
     let target_ec = Conductivity::from_us_per_cm(ec_range.midpoint());
-    let solution_ec = Conductivity::from_us_per_cm(nutrient_pump_state.treatment_solution.solution_strength);
+    let solution_ec =
+        Conductivity::from_us_per_cm(nutrient_pump_state.treatment_solution.solution_strength);
 
     let total_dose = calculate_ec_dose(current_ec, target_ec, config.tank_size, solution_ec);
     let dose_ml = (total_dose.to_milliliters() * DOSE_FRACTION).max(0.0);
@@ -188,19 +187,23 @@ pub(crate) async fn dose_ec_step<
         return Ok(());
     }
 
-    let duration = nutrient_pump_state.calibration.get_dose_duration(Volume::from_milliliters(dose_ml));
-    log::info!("EC dose: {:.2}mL ({}ms), current: {:.0} µS/cm, target: {:.0} µS/cm",
-        dose_ml, duration.as_millis(), current_ec.us_per_cm(), ec_range.midpoint());
+    let duration = nutrient_pump_state
+        .calibration
+        .get_dose_duration(Volume::from_milliliters(dose_ml));
+    log::info!(
+        "EC dose: {:.2}mL ({}ms), current: {:.0} µS/cm, target: {:.0} µS/cm",
+        dose_ml,
+        duration.as_millis(),
+        current_ec.us_per_cm(),
+        ec_range.midpoint()
+    );
     run_pump_for_duration(tc, &Pump::Dose(nutrient_pump_state.pump), duration).await?;
     stir_and_wait(config, tc).await;
 
     Ok(())
 }
 
-pub(crate) async fn dose_ph_step<
-    Sensors: SensorReadRaw,
-    Pumps: PumpController,
->(
+pub(crate) async fn dose_ph_step<Sensors: SensorReadRaw, Pumps: PumpController>(
     tc: &TreatmentControllerMutex<'_, Sensors, Pumps>,
     config: &crate::config::device_config::DeviceConfig,
     measurement: &PhMeasurementPoint,
@@ -222,12 +225,16 @@ pub(crate) async fn dose_ph_step<
 
     let total_dose = if dosing_up {
         calculate_ph_up_dose(
-            measurement.ph_value, target_ph, config.tank_size,
+            measurement.ph_value,
+            target_ph,
+            config.tank_size,
             pump_state.treatment_solution.solution_strength,
         )
     } else {
         calculate_ph_down_dose(
-            measurement.ph_value, target_ph, config.tank_size,
+            measurement.ph_value,
+            target_ph,
+            config.tank_size,
             pump_state.treatment_solution.solution_strength,
         )
     };
@@ -239,19 +246,24 @@ pub(crate) async fn dose_ph_step<
     }
 
     let direction = if dosing_up { "up" } else { "down" };
-    let duration = pump_state.calibration.get_dose_duration(Volume::from_milliliters(dose_ml));
-    log::info!("pH {} dose: {:.2}mL ({}ms), current: {:.2}, target: {:.2}",
-        direction, dose_ml, duration.as_millis(), measurement.ph_value, target_ph);
+    let duration = pump_state
+        .calibration
+        .get_dose_duration(Volume::from_milliliters(dose_ml));
+    log::info!(
+        "pH {} dose: {:.2}mL ({}ms), current: {:.2}, target: {:.2}",
+        direction,
+        dose_ml,
+        duration.as_millis(),
+        measurement.ph_value,
+        target_ph
+    );
     run_pump_for_duration(tc, &Pump::Dose(pump_state.pump), duration).await?;
     stir_and_wait(config, tc).await;
 
     Ok(())
 }
 
-pub(crate) async fn dose_orp_step<
-    Sensors: SensorReadRaw,
-    Pumps: PumpController,
->(
+pub(crate) async fn dose_orp_step<Sensors: SensorReadRaw, Pumps: PumpController>(
     tc: &TreatmentControllerMutex<'_, Sensors, Pumps>,
     config: &crate::config::device_config::DeviceConfig,
     measurement: &OrpMeasurementPoint,
@@ -263,8 +275,12 @@ pub(crate) async fn dose_orp_step<
 
     let dose_volume = Volume::from_milliliters(ORP_FIXED_DOSE_ML);
     let duration = orp_pump_state.calibration.get_dose_duration(dose_volume);
-    log::info!("ORP dose: {:.1}mL ({}ms), current: {:.0}mV",
-        ORP_FIXED_DOSE_ML, duration.as_millis(), measurement.voltage.mv());
+    log::info!(
+        "ORP dose: {:.1}mL ({}ms), current: {:.0}mV",
+        ORP_FIXED_DOSE_ML,
+        duration.as_millis(),
+        measurement.voltage.mv()
+    );
     run_pump_for_duration(tc, &Pump::Dose(orp_pump_state.pump), duration).await?;
     stir_and_wait(config, tc).await;
 
@@ -281,7 +297,12 @@ mod tests {
         let dose = calculate_ph_up_dose(6.0, 7.0, Volume::from_liters(10.0), 10.0);
         let expected_ml = 9.0;
         let actual_ml = dose.to_milliliters();
-        assert!((actual_ml - expected_ml).abs() < 0.01, "Expected {:.1} mL, got {:.2} mL", expected_ml, actual_ml);
+        assert!(
+            (actual_ml - expected_ml).abs() < 0.01,
+            "Expected {:.1} mL, got {:.2} mL",
+            expected_ml,
+            actual_ml
+        );
     }
 
     #[test]
@@ -289,7 +310,12 @@ mod tests {
         let dose = calculate_ph_down_dose(10.0, 9.0, Volume::from_liters(10.0), 6.0);
         let expected_ml = 9.0;
         let actual_ml = dose.to_milliliters();
-        assert!((actual_ml - expected_ml).abs() < 0.01, "Expected {:.1} mL, got {:.1} mL", expected_ml, actual_ml);
+        assert!(
+            (actual_ml - expected_ml).abs() < 0.01,
+            "Expected {:.1} mL, got {:.1} mL",
+            expected_ml,
+            actual_ml
+        );
     }
 
     #[test]
@@ -297,13 +323,21 @@ mod tests {
         let dose_10l = calculate_ph_up_dose(6.5, 7.0, Volume::from_liters(10.0), 10.0);
         let dose_20l = calculate_ph_up_dose(6.5, 7.0, Volume::from_liters(20.0), 10.0);
         let ratio = dose_20l.to_milliliters() / dose_10l.to_milliliters();
-        assert!((ratio - 2.0).abs() < 0.001, "Expected 2x dose for 2x tank, got {:.4}x", ratio);
+        assert!(
+            (ratio - 2.0).abs() < 0.001,
+            "Expected 2x dose for 2x tank, got {:.4}x",
+            ratio
+        );
     }
 
     #[test]
     fn ph_up_dose_zero_when_at_target() {
         let dose = calculate_ph_up_dose(7.0, 7.0, Volume::from_liters(100.0), 10.0);
-        assert!(dose.to_milliliters().abs() < 0.0001, "Expected ~0 mL, got {:.6} mL", dose.to_milliliters());
+        assert!(
+            dose.to_milliliters().abs() < 0.0001,
+            "Expected ~0 mL, got {:.6} mL",
+            dose.to_milliliters()
+        );
     }
 
     #[test]
@@ -311,13 +345,20 @@ mod tests {
         let dose_ph10 = calculate_ph_up_dose(6.5, 7.0, Volume::from_liters(10.0), 10.0);
         let dose_ph11 = calculate_ph_up_dose(6.5, 7.0, Volume::from_liters(10.0), 11.0);
         let ratio = dose_ph10.to_milliliters() / dose_ph11.to_milliliters();
-        assert!((ratio - 10.0).abs() < 0.01, "Expected 10x dose for 1 pH unit weaker solution, got {:.4}x", ratio);
+        assert!(
+            (ratio - 10.0).abs() < 0.01,
+            "Expected 10x dose for 1 pH unit weaker solution, got {:.4}x",
+            ratio
+        );
     }
 
     #[test]
     fn ph_up_dose_positive_when_below_range() {
         let dose = calculate_ph_up_dose(6.0, 7.0, Volume::from_liters(50.0), 10.0);
-        assert!(dose.to_milliliters() > 0.0, "Expected positive dose when pH is below range");
+        assert!(
+            dose.to_milliliters() > 0.0,
+            "Expected positive dose when pH is below range"
+        );
     }
 
     #[test]
@@ -325,13 +366,21 @@ mod tests {
         let dose_10l = calculate_ph_down_dose(7.5, 7.0, Volume::from_liters(10.0), 3.0);
         let dose_20l = calculate_ph_down_dose(7.5, 7.0, Volume::from_liters(20.0), 3.0);
         let ratio = dose_20l.to_milliliters() / dose_10l.to_milliliters();
-        assert!((ratio - 2.0).abs() < 0.001, "Expected 2x dose for 2x tank, got {:.4}x", ratio);
+        assert!(
+            (ratio - 2.0).abs() < 0.001,
+            "Expected 2x dose for 2x tank, got {:.4}x",
+            ratio
+        );
     }
 
     #[test]
     fn ph_down_dose_zero_when_at_target() {
         let dose = calculate_ph_down_dose(7.0, 7.0, Volume::from_liters(100.0), 3.0);
-        assert!(dose.to_milliliters().abs() < 0.0001, "Expected ~0 mL, got {:.6} mL", dose.to_milliliters());
+        assert!(
+            dose.to_milliliters().abs() < 0.0001,
+            "Expected ~0 mL, got {:.6} mL",
+            dose.to_milliliters()
+        );
     }
 
     #[test]
@@ -339,13 +388,20 @@ mod tests {
         let dose_ph3 = calculate_ph_down_dose(7.5, 7.0, Volume::from_liters(10.0), 3.0);
         let dose_ph2 = calculate_ph_down_dose(7.5, 7.0, Volume::from_liters(10.0), 2.0);
         let ratio = dose_ph3.to_milliliters() / dose_ph2.to_milliliters();
-        assert!((ratio - 10.0).abs() < 0.01, "Expected 10x dose for 1 pH unit weaker solution, got {:.4}x", ratio);
+        assert!(
+            (ratio - 10.0).abs() < 0.01,
+            "Expected 10x dose for 1 pH unit weaker solution, got {:.4}x",
+            ratio
+        );
     }
 
     #[test]
     fn ph_down_dose_positive_when_above_range() {
         let dose = calculate_ph_down_dose(8.0, 7.0, Volume::from_liters(50.0), 3.0);
-        assert!(dose.to_milliliters() > 0.0, "Expected positive dose when pH is above range");
+        assert!(
+            dose.to_milliliters() > 0.0,
+            "Expected positive dose when pH is above range"
+        );
     }
 
     fn ec(us: f32) -> Conductivity {
@@ -354,34 +410,88 @@ mod tests {
 
     #[test]
     fn ec_dose_proportional_to_tank_size() {
-        let dose_10l = calculate_ec_dose(ec(500.0), ec(800.0), Volume::from_liters(10.0), ec(50_000.0));
-        let dose_20l = calculate_ec_dose(ec(500.0), ec(800.0), Volume::from_liters(20.0), ec(50_000.0));
+        let dose_10l = calculate_ec_dose(
+            ec(500.0),
+            ec(800.0),
+            Volume::from_liters(10.0),
+            ec(50_000.0),
+        );
+        let dose_20l = calculate_ec_dose(
+            ec(500.0),
+            ec(800.0),
+            Volume::from_liters(20.0),
+            ec(50_000.0),
+        );
         let ratio = dose_20l.to_milliliters() / dose_10l.to_milliliters();
-        assert!((ratio - 2.0).abs() < 0.001, "Expected 2x dose for 2x tank, got {:.4}x", ratio);
+        assert!(
+            (ratio - 2.0).abs() < 0.001,
+            "Expected 2x dose for 2x tank, got {:.4}x",
+            ratio
+        );
     }
 
     #[test]
     fn ec_dose_zero_when_at_target() {
-        let dose = calculate_ec_dose(ec(800.0), ec(800.0), Volume::from_liters(10.0), ec(50_000.0));
-        assert!(dose.to_milliliters().abs() < 0.0001, "Expected ~0 mL, got {:.6} mL", dose.to_milliliters());
+        let dose = calculate_ec_dose(
+            ec(800.0),
+            ec(800.0),
+            Volume::from_liters(10.0),
+            ec(50_000.0),
+        );
+        assert!(
+            dose.to_milliliters().abs() < 0.0001,
+            "Expected ~0 mL, got {:.6} mL",
+            dose.to_milliliters()
+        );
     }
 
     #[test]
     fn ec_dose_larger_deficit_gives_larger_dose() {
-        let small_deficit = calculate_ec_dose(ec(700.0), ec(800.0), Volume::from_liters(50.0), ec(50_000.0));
-        let large_deficit = calculate_ec_dose(ec(400.0), ec(800.0), Volume::from_liters(50.0), ec(50_000.0));
-        assert!(large_deficit.to_milliliters() > small_deficit.to_milliliters(), "Larger EC deficit should give larger dose");
+        let small_deficit = calculate_ec_dose(
+            ec(700.0),
+            ec(800.0),
+            Volume::from_liters(50.0),
+            ec(50_000.0),
+        );
+        let large_deficit = calculate_ec_dose(
+            ec(400.0),
+            ec(800.0),
+            Volume::from_liters(50.0),
+            ec(50_000.0),
+        );
+        assert!(
+            large_deficit.to_milliliters() > small_deficit.to_milliliters(),
+            "Larger EC deficit should give larger dose"
+        );
     }
 
     #[test]
     fn ec_dose_stronger_solution_gives_smaller_dose() {
-        let weak = calculate_ec_dose(ec(500.0), ec(800.0), Volume::from_liters(10.0), ec(25_000.0));
-        let strong = calculate_ec_dose(ec(500.0), ec(800.0), Volume::from_liters(10.0), ec(50_000.0));
+        let weak = calculate_ec_dose(
+            ec(500.0),
+            ec(800.0),
+            Volume::from_liters(10.0),
+            ec(25_000.0),
+        );
+        let strong = calculate_ec_dose(
+            ec(500.0),
+            ec(800.0),
+            Volume::from_liters(10.0),
+            ec(50_000.0),
+        );
         let ratio = weak.to_milliliters() / strong.to_milliliters();
-        assert!((ratio - 2.0).abs() < 0.001, "Expected 2x dose for half-strength solution, got {:.4}x", ratio);
+        assert!(
+            (ratio - 2.0).abs() < 0.001,
+            "Expected 2x dose for half-strength solution, got {:.4}x",
+            ratio
+        );
     }
 
-    fn enable_pump(config: &mut DeviceConfig, pump: crate::ui_types::DosingPump, solution_type: TreatmentSolutionType) {
+    fn enable_pump(
+        config: &mut DeviceConfig,
+        pump: crate::ui_types::DosingPump,
+        solution_type: TreatmentSolutionType,
+    ) {
         let state = config.pumps.get_dosing_pump_state_mut(pump);
         state.enabled = true;
         state.treatment_solution.solution_type = solution_type;
@@ -396,10 +506,26 @@ mod tests {
         config.ph.max_acceptable = ph.1;
         config.orp.min_acceptable = orp.0;
         config.orp.max_acceptable = orp.1;
-        enable_pump(&mut config, crate::ui_types::DosingPump::DoseOne, TreatmentSolutionType::Nutrient);
-        enable_pump(&mut config, crate::ui_types::DosingPump::DoseTwo, TreatmentSolutionType::PhUp);
-        enable_pump(&mut config, crate::ui_types::DosingPump::DoseThree, TreatmentSolutionType::PhDown);
-        enable_pump(&mut config, crate::ui_types::DosingPump::DoseFour, TreatmentSolutionType::OrpTreatment);
+        enable_pump(
+            &mut config,
+            crate::ui_types::DosingPump::DoseOne,
+            TreatmentSolutionType::Nutrient,
+        );
+        enable_pump(
+            &mut config,
+            crate::ui_types::DosingPump::DoseTwo,
+            TreatmentSolutionType::PhUp,
+        );
+        enable_pump(
+            &mut config,
+            crate::ui_types::DosingPump::DoseThree,
+            TreatmentSolutionType::PhDown,
+        );
+        enable_pump(
+            &mut config,
+            crate::ui_types::DosingPump::DoseFour,
+            TreatmentSolutionType::OrpTreatment,
+        );
         config
     }
 
@@ -414,7 +540,9 @@ mod tests {
             temperature: None,
             ec: ec_val.map(Conductivity::from_us_per_cm),
             ph: ph_val.map(ph),
-            orp: orp_val.map(|v| OrpMeasurementPoint { voltage: Voltage::from_mv(v) }),
+            orp: orp_val.map(|v| OrpMeasurementPoint {
+                voltage: Voltage::from_mv(v),
+            }),
         }
     }
 
@@ -502,7 +630,11 @@ mod tests {
         );
     }
 
-    fn config_with_ranges_no_pumps(ec: (f32, f32), ph: (f32, f32), orp: (f32, f32)) -> DeviceConfig {
+    fn config_with_ranges_no_pumps(
+        ec: (f32, f32),
+        ph: (f32, f32),
+        orp: (f32, f32),
+    ) -> DeviceConfig {
         let mut config = DeviceConfig::default();
         config.ec.min_acceptable = ec.0;
         config.ec.max_acceptable = ec.1;
@@ -525,7 +657,11 @@ mod tests {
     #[test]
     fn select_falls_through_to_ph_when_no_nutrient_pump() {
         let mut config = config_with_ranges_no_pumps((500.0, 1000.0), (6.0, 7.5), (400.0, 800.0));
-        enable_pump(&mut config, crate::ui_types::DosingPump::DoseTwo, TreatmentSolutionType::PhUp);
+        enable_pump(
+            &mut config,
+            crate::ui_types::DosingPump::DoseTwo,
+            TreatmentSolutionType::PhUp,
+        );
         assert!(matches!(
             select_dosing_action(&config, &readings(Some(400.0), Some(5.0), Some(300.0))),
             PrioritizedTreatment::RaisePh(_),
@@ -535,7 +671,11 @@ mod tests {
     #[test]
     fn select_falls_through_to_orp_when_no_ec_or_ph_pumps() {
         let mut config = config_with_ranges_no_pumps((500.0, 1000.0), (6.0, 7.5), (400.0, 800.0));
-        enable_pump(&mut config, crate::ui_types::DosingPump::DoseFour, TreatmentSolutionType::OrpTreatment);
+        enable_pump(
+            &mut config,
+            crate::ui_types::DosingPump::DoseFour,
+            TreatmentSolutionType::OrpTreatment,
+        );
         assert!(matches!(
             select_dosing_action(&config, &readings(Some(400.0), Some(5.0), Some(300.0))),
             PrioritizedTreatment::RaiseOrp(_),
@@ -545,10 +685,16 @@ mod tests {
     #[test]
     fn select_skips_disabled_pump() {
         let mut config = config_with_ranges_no_pumps((500.0, 1000.0), (6.0, 7.5), (400.0, 800.0));
-        let state = config.pumps.get_dosing_pump_state_mut(crate::ui_types::DosingPump::DoseOne);
+        let state = config
+            .pumps
+            .get_dosing_pump_state_mut(crate::ui_types::DosingPump::DoseOne);
         state.treatment_solution.solution_type = TreatmentSolutionType::Nutrient;
         state.enabled = false;
-        enable_pump(&mut config, crate::ui_types::DosingPump::DoseTwo, TreatmentSolutionType::PhUp);
+        enable_pump(
+            &mut config,
+            crate::ui_types::DosingPump::DoseTwo,
+            TreatmentSolutionType::PhUp,
+        );
         assert!(matches!(
             select_dosing_action(&config, &readings(Some(400.0), Some(5.0), None)),
             PrioritizedTreatment::RaisePh(_),
@@ -558,7 +704,11 @@ mod tests {
     #[test]
     fn select_falls_through_ph_down_when_no_ph_down_pump() {
         let mut config = config_with_ranges_no_pumps((500.0, 1000.0), (6.0, 7.5), (400.0, 800.0));
-        enable_pump(&mut config, crate::ui_types::DosingPump::DoseFour, TreatmentSolutionType::OrpTreatment);
+        enable_pump(
+            &mut config,
+            crate::ui_types::DosingPump::DoseFour,
+            TreatmentSolutionType::OrpTreatment,
+        );
         assert!(matches!(
             select_dosing_action(&config, &readings(Some(750.0), Some(8.0), Some(300.0))),
             PrioritizedTreatment::RaiseOrp(_),

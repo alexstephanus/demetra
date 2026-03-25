@@ -1,9 +1,7 @@
 use chrono::{DateTime, Utc};
 use embassy_time::Duration;
 
-use crate::{
-    units::Volume,
-};
+use crate::units::Volume;
 
 use super::types::TimestampedValue;
 

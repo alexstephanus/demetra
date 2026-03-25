@@ -49,7 +49,8 @@ impl From<crate::peripherals::OutletState> for OutletUiState {
         use slint::ModelRc;
         use slint::VecModel;
 
-        let windows: Vec<UiScheduledRunWindow> = backend_state.schedule
+        let windows: Vec<UiScheduledRunWindow> = backend_state
+            .schedule
             .events()
             .iter()
             .map(|event| event.clone().into())
@@ -102,14 +103,15 @@ impl TryFrom<UiScheduledRunWindow> for crate::config::outlet_schedule::Scheduled
     type Error = &'static str;
 
     fn try_from(ui_window: UiScheduledRunWindow) -> Result<Self, Self::Error> {
-        use chrono::{NaiveTime, Duration};
         use crate::config::outlet_schedule::DaysOfWeek;
+        use chrono::{Duration, NaiveTime};
 
         let start_time = NaiveTime::from_hms_opt(
             ui_window.start_hour as u32,
             ui_window.start_minute as u32,
-            0
-        ).ok_or("Invalid start time")?;
+            0,
+        )
+        .ok_or("Invalid start time")?;
 
         let run_duration = match ui_window.duration_unit.as_str() {
             "hours" => Duration::hours(ui_window.duration_value as i64),

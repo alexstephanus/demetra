@@ -17,42 +17,23 @@ use esp_hal::{
 };
 use log::info;
 use slint::{
+    platform::{software_renderer::Rgb565Pixel, WindowEvent},
     ComponentHandle,
-    platform::{
-        WindowEvent,
-        software_renderer::Rgb565Pixel,
-    },
 };
 
 use lib::{
     config::device_config::DeviceConfig,
-    peripherals::{
-        rtc::Mcp7940,
-    },
-    storage::{
-        EmptyMetadata,
-        RingBuffer,
-    },
+    peripherals::rtc::Mcp7940,
+    storage::{EmptyMetadata, RingBuffer},
     ui_backend::{
-        actions::{UI_ACTION_CHANNEL, UiMessage, MessageContext, UI_ACTION_CHANNEL_SIZE},
-        ui_runner::{
-            DISPLAY_WIDTH,
-            FRAME_PIXELS,
-            TouchInput,
-            render_loop,
-        },
+        actions::{MessageContext, UiMessage, UI_ACTION_CHANNEL, UI_ACTION_CHANNEL_SIZE},
+        ui_runner::{render_loop, TouchInput, DISPLAY_WIDTH, FRAME_PIXELS},
     },
-    ui_types::{
-        MainWindow,
-    },
+    ui_types::MainWindow,
 };
 
 use crate::hardware_peripherals::{
-    EspStorage,
-    EspTreatmentControllerMutex,
-    HardwareDisplay,
-    HardwareTouchInput,
-    SharedI2cDevice,
+    EspStorage, EspTreatmentControllerMutex, HardwareDisplay, HardwareTouchInput, SharedI2cDevice,
 };
 
 #[allow(unsafe_code)]
@@ -93,11 +74,8 @@ pub async fn read_touch_input(
     touch_reset_pin.set_high();
     embassy_time::Timer::after(Duration::from_millis(10)).await;
 
-    let mut touch_input = HardwareTouchInput::new(
-        touch_i2c_device,
-        touch_interrupt_input,
-        window_event_tx,
-    );
+    let mut touch_input =
+        HardwareTouchInput::new(touch_i2c_device, touch_interrupt_input, window_event_tx);
 
     loop {
         // We get notified for touches and moves, but not for releases,
@@ -105,7 +83,8 @@ pub async fn read_touch_input(
         embassy_futures::select::select(
             touch_input.wait_for_touch(),
             embassy_time::Timer::after(embassy_time::Duration::from_millis(50)),
-        ).await;
+        )
+        .await;
         touch_input.process_touch_events().await;
     }
 }
@@ -130,24 +109,20 @@ pub async fn render_ui(
     let dma_rx_buf = esp_hal::dma::DmaRxBuf::new(rx_descriptors, rx_buffer).unwrap();
     let dma_tx_buf = esp_hal::dma::DmaTxBuf::new(tx_descriptors, tx_buffer).unwrap();
 
-    let shared_spi_peripheral_mode_0 = Spi::new(
-        spi,
-        {
-            let config = SpiConfig::default()
-                .with_frequency(Rate::from_mhz(80))
-                .with_mode(Mode::_0);
-            info!("SPI Peripheral frequency: {:?}", config.frequency());
-            config
-        }
-    )
-        .unwrap()
-        .with_sck(sck_pin)
-        .with_mosi(mosi_pin)
-        .with_miso(miso_pin)
-        .with_dma(dma_channel)
-        .with_buffers(dma_rx_buf, dma_tx_buf)
-        .into_async();
-
+    let shared_spi_peripheral_mode_0 = Spi::new(spi, {
+        let config = SpiConfig::default()
+            .with_frequency(Rate::from_mhz(80))
+            .with_mode(Mode::_0);
+        info!("SPI Peripheral frequency: {:?}", config.frequency());
+        config
+    })
+    .unwrap()
+    .with_sck(sck_pin)
+    .with_mosi(mosi_pin)
+    .with_miso(miso_pin)
+    .with_dma(dma_channel)
+    .with_buffers(dma_rx_buf, dma_tx_buf)
+    .into_async();
 
     let mut delay = OneShotTimer::new(timer.timer1).into_async();
     let display = HardwareDisplay::new(
@@ -156,7 +131,8 @@ pub async fn render_ui(
         dc_pin,
         reset_pin,
         &mut delay,
-    ).await;
+    )
+    .await;
 
     info!("Setting up Slint window");
     let slint_window = crate::esp_ui_backend::setup_ui_backend();
@@ -171,7 +147,7 @@ pub async fn render_ui(
 
     // The pixel buffer we use.  Currently it buffers all pixels in the display.
     // Nice to have the spare memory to support this.
-    let mut pixel_buffer = vec!(Rgb565Pixel::default(); FRAME_PIXELS);
+    let mut pixel_buffer = vec![Rgb565Pixel::default(); FRAME_PIXELS];
     let pixel_buf = &mut *pixel_buffer;
 
     let tab_init = main_window.global::<lib::ui_types::TabInitState>();
@@ -198,9 +174,18 @@ pub async fn render_ui(
 
     info!("Render loop spawned successfully");
 
-    render_loop(slint_window, window_event_rx, display, main_window, pixel_buf).await;
+    render_loop(
+        slint_window,
+        window_event_rx,
+        display,
+        main_window,
+        pixel_buf,
+    )
+    .await;
 
-    loop { Timer::after_secs(1).await; }
+    loop {
+        Timer::after_secs(1).await;
+    }
 }
 
 #[task]
@@ -208,13 +193,20 @@ pub async fn process_ui_update_messages(
     ui_message_rx: Receiver<'static, CriticalSectionRawMutex, UiMessage, UI_ACTION_CHANNEL_SIZE>,
     mut rtc: Mcp7940<SharedI2cDevice<'static>>,
     treatment_controller: &'static EspTreatmentControllerMutex<'static>,
-    mut config_buffer: RingBuffer<DeviceConfig, EmptyMetadata, EspStorage<'static>, esp_storage::FlashStorageError>,
+    mut config_buffer: RingBuffer<
+        DeviceConfig,
+        EmptyMetadata,
+        EspStorage<'static>,
+        esp_storage::FlashStorageError,
+    >,
 ) {
     info!("UI message processing loop spawned");
     loop {
         let ui_message = ui_message_rx.receive().await;
         log::info!("UI message received: {:?}", ui_message);
-        let current_ticks = esp_hal::time::Instant::now().duration_since_epoch().as_micros() as u64;
+        let current_ticks = esp_hal::time::Instant::now()
+            .duration_since_epoch()
+            .as_micros() as u64;
         let current_timestamp = lib::state::get_system_time(current_ticks).await;
         let mut ctx = MessageContext {
             current_timestamp,
@@ -228,13 +220,13 @@ pub async fn process_ui_update_messages(
 }
 
 #[task]
-pub async fn outlet_scheduler(
-    treatment_controller: &'static EspTreatmentControllerMutex<'static>,
-) {
-    lib::tasks::outlet_scheduler_task(
-        treatment_controller,
-        || esp_hal::time::Instant::now().duration_since_epoch().as_micros() as u64,
-    ).await;
+pub async fn outlet_scheduler(treatment_controller: &'static EspTreatmentControllerMutex<'static>) {
+    lib::tasks::outlet_scheduler_task(treatment_controller, || {
+        esp_hal::time::Instant::now()
+            .duration_since_epoch()
+            .as_micros() as u64
+    })
+    .await;
 }
 
 #[task]
@@ -273,9 +265,7 @@ pub async fn log_drain(
 const DOSING_INTERVAL_SECS: u64 = 10 * 60;
 
 #[task]
-pub async fn read_and_dose(
-    treatment_controller: &'static EspTreatmentControllerMutex<'static>,
-) {
+pub async fn read_and_dose(treatment_controller: &'static EspTreatmentControllerMutex<'static>) {
     info!("Dosing task started");
     let mut ticker = Ticker::every(Duration::from_secs(DOSING_INTERVAL_SECS));
     loop {

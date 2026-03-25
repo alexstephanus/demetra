@@ -2,8 +2,7 @@ use core::cell::RefCell;
 use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
-    blocking_mutex::Mutex as BlockingMutex,
+    blocking_mutex::raw::CriticalSectionRawMutex, blocking_mutex::Mutex as BlockingMutex,
     rwlock::RwLock,
 };
 use slint::SharedString;
@@ -47,12 +46,13 @@ pub struct ManualSensorReadings {
     pub temperature_manual_reading: Option<SharedString>,
 }
 
-static CURRENT_SENSOR_READINGS: LockedState<CurrentSensorReadings> = RwLock::new(CurrentSensorReadings {
-    ph_value: None,
-    ec_value: None,
-    orp_value: None,
-    temperature_celsius: None,
-});
+static CURRENT_SENSOR_READINGS: LockedState<CurrentSensorReadings> =
+    RwLock::new(CurrentSensorReadings {
+        ph_value: None,
+        ec_value: None,
+        orp_value: None,
+        temperature_celsius: None,
+    });
 
 static VOLTAGE_READINGS: LockedState<VoltageReadings> = RwLock::new(VoltageReadings {
     ph_mv: None,
@@ -67,18 +67,18 @@ pub struct PumpRuntimeState {
     pub outlets: [bool; 4],
 }
 
-
 static PUMP_RUNTIME_STATE: LockedState<PumpRuntimeState> = RwLock::new(PumpRuntimeState {
     dosing_pumps: [false; 6],
     outlets: [false; 4],
 });
 
-static MANUAL_SENSOR_READINGS: LockedState<ManualSensorReadings> = RwLock::new(ManualSensorReadings {
-    ph_manual_reading: None,
-    ec_manual_reading: None,
-    orp_manual_reading: None,
-    temperature_manual_reading: None,
-});
+static MANUAL_SENSOR_READINGS: LockedState<ManualSensorReadings> =
+    RwLock::new(ManualSensorReadings {
+        ph_manual_reading: None,
+        ec_manual_reading: None,
+        orp_manual_reading: None,
+        temperature_manual_reading: None,
+    });
 
 pub async fn get_pump_runtime_state() -> PumpRuntimeState {
     *PUMP_RUNTIME_STATE.read().await

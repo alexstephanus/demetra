@@ -1,22 +1,18 @@
-
+use anyhow::Result;
 use lib::{
     data::{
-        ring_buffer::{MockFlashStorage, MockFlashStorageError, RingBuffer, EmptyMetadata},
         configuration::DeviceConfig,
+        ring_buffer::{EmptyMetadata, MockFlashStorage, MockFlashStorageError, RingBuffer},
     },
+    peripherals::{SensorController, TreatmentController},
     ui_backend::{
-        actions::{UI_ACTION_CHANNEL, UiMessage, MessageContext},
-        ui_runner::{WINDOW_EVENT_CHANNEL, WINDOW_EVENT_CHANNEL_SIZE, FRAME_PIXELS},
+        actions::{MessageContext, UiMessage, UI_ACTION_CHANNEL},
+        ui_runner::{FRAME_PIXELS, WINDOW_EVENT_CHANNEL, WINDOW_EVENT_CHANNEL_SIZE},
     },
     ui_types::MainWindow,
-    peripherals::{TreatmentController, SensorController},
 };
-use anyhow::Result;
 use slint::{
-    platform::{
-        software_renderer::MinimalSoftwareWindow,
-        WindowEvent,
-    },
+    platform::{software_renderer::MinimalSoftwareWindow, WindowEvent},
     ComponentHandle,
 };
 
@@ -42,30 +38,29 @@ async fn main() -> Result<()> {
     println!("This simulation will prompt for sensor readings via CLI");
     println!("UI will open in a separate window");
     println!();
-    
+
     let _config_storage = storage::create_config_storage()?;
-    
-    
-    
+
     println!("Showing UI");
-    
+
     let slint_window = MinimalSoftwareWindow::new(
-        slint::platform::software_renderer::RepaintBufferType::ReusedBuffer
+        slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
     );
 
     let unboxed_slint_backend = display::SimulationBackend::new(slint_window.clone());
-    
+
     let slint_backend = Box::new(unboxed_slint_backend);
-    
+
     slint::platform::set_platform(slint_backend).expect("backend already initialized");
-    
+
     slint_window.set_size(slint::PhysicalSize::new(
         lib::ui_backend::ui_runner::DISPLAY_WIDTH as u32,
         lib::ui_backend::ui_runner::DISPLAY_HEIGHT as u32,
     ));
 
     let config_storage = MockFlashStorage::new(0x0000, 0x4000, None);
-    let mut config_buffer = RingBuffer::new(0x0000, 0x4000, config_storage).expect("simulation config addresses must be page-aligned");
+    let mut config_buffer = RingBuffer::new(0x0000, 0x4000, config_storage)
+        .expect("simulation config addresses must be page-aligned");
 
     let ui = start_ui(&mut config_buffer).await;
     ui.show().expect("Unable to show UI");
@@ -73,14 +68,18 @@ async fn main() -> Result<()> {
     let window_event_sender = WINDOW_EVENT_CHANNEL.sender();
     let window_event_receiver = WINDOW_EVENT_CHANNEL.receiver();
 
-    let (sdl2_renderer, sdl2_window_event_dispatcher) = display::create_sdl2_renderer(
-        window_event_sender,
-    );
+    let (sdl2_renderer, sdl2_window_event_dispatcher) =
+        display::create_sdl2_renderer(window_event_sender);
 
     let register_mouse_events_future = register_mouse_events(sdl2_window_event_dispatcher);
-    let mut pixel_buffer = vec![slint::platform::software_renderer::Rgb565Pixel::default(); FRAME_PIXELS];
+    let mut pixel_buffer =
+        vec![slint::platform::software_renderer::Rgb565Pixel::default(); FRAME_PIXELS];
     let ui_task_future = lib::ui_backend::ui_runner::render_loop::<Sdl2Renderer>(
-        slint_window, window_event_receiver, sdl2_renderer, &ui, &mut pixel_buffer
+        slint_window,
+        window_event_receiver,
+        sdl2_renderer,
+        &ui,
+        &mut pixel_buffer,
     );
 
     let ui_message_receiver = UI_ACTION_CHANNEL.receiver();
@@ -89,7 +88,8 @@ async fn main() -> Result<()> {
 
     let cli_pump_controller = crate::mocks::CliPumpController::new();
     let cli_sensor_controller = SensorController::new(cli_sensors.clone());
-    let treatment_controller = TreatmentController::initialize(cli_pump_controller, cli_sensor_controller);
+    let treatment_controller =
+        TreatmentController::initialize(cli_pump_controller, cli_sensor_controller);
     let treatment_controller_mutex = embassy_sync::mutex::Mutex::new(treatment_controller);
 
     let process_ui_update_messages_future = process_ui_update_messages(
@@ -99,12 +99,13 @@ async fn main() -> Result<()> {
         &mut config_buffer,
     );
 
-    let clock_update_future = lib::tasks::update_clock_task(&ui, || chrono::Utc::now().timestamp_micros() as u64);
+    let clock_update_future =
+        lib::tasks::update_clock_task(&ui, || chrono::Utc::now().timestamp_micros() as u64);
 
-    let outlet_scheduler_future = lib::tasks::outlet_scheduler_task(
-        &treatment_controller_mutex,
-        || chrono::Utc::now().timestamp_micros() as u64,
-    );
+    let outlet_scheduler_future =
+        lib::tasks::outlet_scheduler_task(&treatment_controller_mutex, || {
+            chrono::Utc::now().timestamp_micros() as u64
+        });
 
     let dosing_future = async {
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(15 * 60));
@@ -134,7 +135,7 @@ async fn main() -> Result<()> {
             println!("Dosing task finished");
         }
     }
-    
+
     loop {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     }
@@ -142,9 +143,17 @@ async fn main() -> Result<()> {
     // Ok(())
 }
 
-async fn initialize_simulation_state(ui: &lib::ui_types::MainWindow, config_buffer: &mut RingBuffer<DeviceConfig, EmptyMetadata, MockFlashStorage, MockFlashStorageError>) {
-    use lib::peripherals::DosingPump;
+async fn initialize_simulation_state(
+    ui: &lib::ui_types::MainWindow,
+    config_buffer: &mut RingBuffer<
+        DeviceConfig,
+        EmptyMetadata,
+        MockFlashStorage,
+        MockFlashStorageError,
+    >,
+) {
     use chrono::Utc;
+    use lib::peripherals::DosingPump;
 
     let timestamp = Utc::now();
 
@@ -155,99 +164,146 @@ async fn initialize_simulation_state(ui: &lib::ui_types::MainWindow, config_buff
         device_config.temperature.enabled = true;
 
         // Pump 0: Unconfigured, enabled
-        let pump0_state = device_config.pumps.get_dosing_pump_state_mut(DosingPump::DoseOne);
+        let pump0_state = device_config
+            .pumps
+            .get_dosing_pump_state_mut(DosingPump::DoseOne);
         pump0_state.enabled = true;
         pump0_state.name = None;
-        pump0_state.treatment_solution.solution_type = lib::ui_types::TreatmentSolutionType::Unconfigured;
+        pump0_state.treatment_solution.solution_type =
+            lib::ui_types::TreatmentSolutionType::Unconfigured;
         pump0_state.treatment_solution.solution_strength = 0.0;
 
         // Pump 1: pH Down, enabled
-        let pump1_state = device_config.pumps.get_dosing_pump_state_mut(DosingPump::DoseTwo);
+        let pump1_state = device_config
+            .pumps
+            .get_dosing_pump_state_mut(DosingPump::DoseTwo);
         pump1_state.enabled = true;
         pump1_state.name = Some("pH Down".into());
         pump1_state.treatment_solution.solution_type = lib::ui_types::TreatmentSolutionType::PhDown;
         pump1_state.treatment_solution.solution_strength = 4.0;
 
         // Pump 2: Unconfigured, disabled
-        let pump2_state = device_config.pumps.get_dosing_pump_state_mut(DosingPump::DoseThree);
+        let pump2_state = device_config
+            .pumps
+            .get_dosing_pump_state_mut(DosingPump::DoseThree);
         pump2_state.enabled = false;
         pump2_state.name = None;
-        pump2_state.treatment_solution.solution_type = lib::ui_types::TreatmentSolutionType::Unconfigured;
+        pump2_state.treatment_solution.solution_type =
+            lib::ui_types::TreatmentSolutionType::Unconfigured;
         pump2_state.treatment_solution.solution_strength = 0.0;
 
         // Pump 3: pH Up, enabled
-        let pump3_state = device_config.pumps.get_dosing_pump_state_mut(DosingPump::DoseFour);
+        let pump3_state = device_config
+            .pumps
+            .get_dosing_pump_state_mut(DosingPump::DoseFour);
         pump3_state.enabled = true;
         pump3_state.name = Some("pH Up".into());
         pump3_state.treatment_solution.solution_type = lib::ui_types::TreatmentSolutionType::PhUp;
         pump3_state.treatment_solution.solution_strength = 9.0;
 
         // Pump 4: ORP Treatment, enabled, error status
-        let pump4_state = device_config.pumps.get_dosing_pump_state_mut(DosingPump::DoseFive);
+        let pump4_state = device_config
+            .pumps
+            .get_dosing_pump_state_mut(DosingPump::DoseFive);
         pump4_state.enabled = true;
         pump4_state.name = None;
         pump4_state.status = lib::ui_types::Status::Error;
-        pump4_state.treatment_solution.solution_type = lib::ui_types::TreatmentSolutionType::OrpTreatment;
+        pump4_state.treatment_solution.solution_type =
+            lib::ui_types::TreatmentSolutionType::OrpTreatment;
         pump4_state.treatment_solution.solution_strength = 400.0;
 
         // Pump 5: Nutrients, enabled
-        let pump5_state = device_config.pumps.get_dosing_pump_state_mut(DosingPump::DoseSix);
+        let pump5_state = device_config
+            .pumps
+            .get_dosing_pump_state_mut(DosingPump::DoseSix);
         pump5_state.enabled = true;
         pump5_state.name = Some("Nutrients".into());
-        pump5_state.treatment_solution.solution_type = lib::ui_types::TreatmentSolutionType::Nutrient;
+        pump5_state.treatment_solution.solution_type =
+            lib::ui_types::TreatmentSolutionType::Nutrient;
         pump5_state.treatment_solution.solution_strength = 1.8;
 
         // Outlet 1: General Purpose (Fertigation) with schedule
-        use lib::data::schedule::{OutletSchedule, ScheduledEvent, DaysOfWeek};
+        use chrono::{Duration, NaiveTime};
+        use lib::data::schedule::{DaysOfWeek, OutletSchedule, ScheduledEvent};
         use lib::ui_types::OutletMode;
-        use chrono::{NaiveTime, Duration};
 
         let mut gp_schedule = OutletSchedule::new();
-        gp_schedule.add_event(ScheduledEvent::new(
-            NaiveTime::from_hms_opt(6, 0, 0).unwrap(),
-            Duration::minutes(15),
-        ).with_days(DaysOfWeek::every_day()));
-        gp_schedule.add_event(ScheduledEvent::new(
-            NaiveTime::from_hms_opt(8, 0, 0).unwrap(),
-            Duration::minutes(30),
-        ).with_days(DaysOfWeek::every_day()));
-        gp_schedule.add_event(ScheduledEvent::new(
-            NaiveTime::from_hms_opt(12, 0, 0).unwrap(),
-            Duration::minutes(20),
-        ).with_days(DaysOfWeek::from_bools(false, true, true, true, true, true, false)));
-        gp_schedule.add_event(ScheduledEvent::new(
-            NaiveTime::from_hms_opt(16, 30, 0).unwrap(),
-            Duration::minutes(25),
-        ).with_days(DaysOfWeek::from_bools(true, false, false, false, false, false, true)));
-        gp_schedule.add_event(ScheduledEvent::new(
-            NaiveTime::from_hms_opt(20, 30, 0).unwrap(),
-            Duration::hours(1),
-        ).with_days(DaysOfWeek::from_bools(false, true, true, true, true, true, false)));
-        gp_schedule.add_event(ScheduledEvent::new(
-            NaiveTime::from_hms_opt(22, 0, 0).unwrap(),
-            Duration::minutes(10),
-        ).with_days(DaysOfWeek::every_day()));
+        gp_schedule.add_event(
+            ScheduledEvent::new(
+                NaiveTime::from_hms_opt(6, 0, 0).unwrap(),
+                Duration::minutes(15),
+            )
+            .with_days(DaysOfWeek::every_day()),
+        );
+        gp_schedule.add_event(
+            ScheduledEvent::new(
+                NaiveTime::from_hms_opt(8, 0, 0).unwrap(),
+                Duration::minutes(30),
+            )
+            .with_days(DaysOfWeek::every_day()),
+        );
+        gp_schedule.add_event(
+            ScheduledEvent::new(
+                NaiveTime::from_hms_opt(12, 0, 0).unwrap(),
+                Duration::minutes(20),
+            )
+            .with_days(DaysOfWeek::from_bools(
+                false, true, true, true, true, true, false,
+            )),
+        );
+        gp_schedule.add_event(
+            ScheduledEvent::new(
+                NaiveTime::from_hms_opt(16, 30, 0).unwrap(),
+                Duration::minutes(25),
+            )
+            .with_days(DaysOfWeek::from_bools(
+                true, false, false, false, false, false, true,
+            )),
+        );
+        gp_schedule.add_event(
+            ScheduledEvent::new(
+                NaiveTime::from_hms_opt(20, 30, 0).unwrap(),
+                Duration::hours(1),
+            )
+            .with_days(DaysOfWeek::from_bools(
+                false, true, true, true, true, true, false,
+            )),
+        );
+        gp_schedule.add_event(
+            ScheduledEvent::new(
+                NaiveTime::from_hms_opt(22, 0, 0).unwrap(),
+                Duration::minutes(10),
+            )
+            .with_days(DaysOfWeek::every_day()),
+        );
 
-        let outlet1 = device_config.outlets.get_outlet_state_mut(lib::ui_types::Outlet::One);
+        let outlet1 = device_config
+            .outlets
+            .get_outlet_state_mut(lib::ui_types::Outlet::One);
         outlet1.name = Some("Fertigation".into());
         outlet1.enabled = true;
         outlet1.mode = OutletMode::GeneralPurpose;
         outlet1.schedule = gp_schedule;
 
         // Outlet 2: Stir Pump (30 seconds)
-        let outlet2 = device_config.outlets.get_outlet_state_mut(lib::ui_types::Outlet::Two);
+        let outlet2 = device_config
+            .outlets
+            .get_outlet_state_mut(lib::ui_types::Outlet::Two);
         outlet2.name = Some("Stir Pump".into());
         outlet2.enabled = true;
         outlet2.mode = OutletMode::StirPump;
         outlet2.stir_seconds = Some(30);
 
         // Outlet 3: Auto-Fill Solenoid (60 second max)
-        let outlet3 = device_config.outlets.get_outlet_state_mut(lib::ui_types::Outlet::Three);
+        let outlet3 = device_config
+            .outlets
+            .get_outlet_state_mut(lib::ui_types::Outlet::Three);
         outlet3.name = Some("Auto-Fill".into());
         outlet3.enabled = true;
         outlet3.mode = OutletMode::Solenoid;
         outlet3.max_fill_seconds = Some(60);
-    }).await;
+    })
+    .await;
 
     let mut device_config = lib::storage::get_device_config().await;
     device_config.populate_ui_from_backend(ui);
@@ -301,10 +357,20 @@ fn seed_simulation_sensor_history() {
     lib::ui_backend::state::push_sensor_readings_bulk(SensorType::Orp, &orp_readings);
     lib::ui_backend::state::push_sensor_readings_bulk(SensorType::Temperature, &temp_readings);
 
-    println!("Seeded sensor history with {} simulated readings per sensor (24h @ 15min intervals)", num_points);
+    println!(
+        "Seeded sensor history with {} simulated readings per sensor (24h @ 15min intervals)",
+        num_points
+    );
 }
 
-async fn start_ui(config_buffer: &mut RingBuffer<DeviceConfig, EmptyMetadata, MockFlashStorage, MockFlashStorageError>) -> lib::ui_types::MainWindow {
+async fn start_ui(
+    config_buffer: &mut RingBuffer<
+        DeviceConfig,
+        EmptyMetadata,
+        MockFlashStorage,
+        MockFlashStorageError,
+    >,
+) -> lib::ui_types::MainWindow {
     println!("Starting Slint UI...");
 
     let ui = lib::ui_types::MainWindow::new().unwrap();
@@ -335,12 +401,25 @@ async fn register_mouse_events(
     }
 }
 
-
 async fn process_ui_update_messages<'a>(
-    ui_event_receiver: embassy_sync::channel::Receiver<'static, embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex, UiMessage, { lib::ui_backend::actions::UI_ACTION_CHANNEL_SIZE }>,
+    ui_event_receiver: embassy_sync::channel::Receiver<
+        'static,
+        embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex,
+        UiMessage,
+        { lib::ui_backend::actions::UI_ACTION_CHANNEL_SIZE },
+    >,
     rtc: &mut MockRtc,
-    treatment_controller: &lib::peripherals::TreatmentControllerMutex<'a, crate::mocks::CliSensors, crate::mocks::CliPumpController>,
-    config_buffer: &mut RingBuffer<DeviceConfig, EmptyMetadata, MockFlashStorage, MockFlashStorageError>,
+    treatment_controller: &lib::peripherals::TreatmentControllerMutex<
+        'a,
+        crate::mocks::CliSensors,
+        crate::mocks::CliPumpController,
+    >,
+    config_buffer: &mut RingBuffer<
+        DeviceConfig,
+        EmptyMetadata,
+        MockFlashStorage,
+        MockFlashStorageError,
+    >,
 ) {
     loop {
         println!("Waiting for UI update message...");
@@ -362,8 +441,8 @@ async fn process_ui_update_messages<'a>(
 }
 
 async fn process_cli_commands(ui: &MainWindow) {
-    use tokio::io::{AsyncBufReadExt, BufReader};
     use std::io::{self, Write};
+    use tokio::io::{AsyncBufReadExt, BufReader};
 
     println!("CLI commands available:");
     println!("   set-state ph-slope <value>     - Set pH calibration slope percentage");
@@ -391,33 +470,45 @@ async fn process_cli_commands(ui: &MainWindow) {
                     ["help"] => {
                         println!("Available CLI commands:");
                         println!("   set-state ph-slope <value>     - Set pH calibration slope percentage (e.g., 100, 95, 110)");
-                        println!("   set-state ph-calibration-state <state> - Set pH calibration state:");
+                        println!(
+                            "   set-state ph-calibration-state <state> - Set pH calibration state:"
+                        );
                         println!("       inactive, getting-low, measuring-low, getting-mid, measuring-mid,");
                         println!("       getting-high, measuring-high, complete, cancelled");
                         println!("   help                           - Show this help");
                     }
-                    ["set-state", "ph-slope", value] => {
-                        match value.parse::<f32>() {
-                            Ok(slope) => {
-                                let workflow_state = ui.global::<lib::ui_types::WorkflowUiState>();
-                                workflow_state.set_ph_calibration_slope(slope);
-                                println!("Set pH slope to {:.1}%", slope);
-                            }
-                            Err(_) => {
-                                println!("Invalid number: '{}'", value);
-                            }
+                    ["set-state", "ph-slope", value] => match value.parse::<f32>() {
+                        Ok(slope) => {
+                            let workflow_state = ui.global::<lib::ui_types::WorkflowUiState>();
+                            workflow_state.set_ph_calibration_slope(slope);
+                            println!("Set pH slope to {:.1}%", slope);
                         }
-                    }
+                        Err(_) => {
+                            println!("Invalid number: '{}'", value);
+                        }
+                    },
                     ["set-state", "ph-calibration-state", state] => {
                         let workflow_state = ui.global::<lib::ui_types::WorkflowUiState>();
                         let ph_state = match *state {
                             "inactive" => lib::ui_types::PhCalibrationWorkflowStep::Inactive,
-                            "getting-low" => lib::ui_types::PhCalibrationWorkflowStep::GettingLowPhValue,
-                            "measuring-low" => lib::ui_types::PhCalibrationWorkflowStep::MeasuringLowPh,
-                            "getting-mid" => lib::ui_types::PhCalibrationWorkflowStep::GettingMidPhValue,
-                            "measuring-mid" => lib::ui_types::PhCalibrationWorkflowStep::MeasuringMidPh,
-                            "getting-high" => lib::ui_types::PhCalibrationWorkflowStep::GettingHighPhValue,
-                            "measuring-high" => lib::ui_types::PhCalibrationWorkflowStep::MeasuringHighPh,
+                            "getting-low" => {
+                                lib::ui_types::PhCalibrationWorkflowStep::GettingLowPhValue
+                            }
+                            "measuring-low" => {
+                                lib::ui_types::PhCalibrationWorkflowStep::MeasuringLowPh
+                            }
+                            "getting-mid" => {
+                                lib::ui_types::PhCalibrationWorkflowStep::GettingMidPhValue
+                            }
+                            "measuring-mid" => {
+                                lib::ui_types::PhCalibrationWorkflowStep::MeasuringMidPh
+                            }
+                            "getting-high" => {
+                                lib::ui_types::PhCalibrationWorkflowStep::GettingHighPhValue
+                            }
+                            "measuring-high" => {
+                                lib::ui_types::PhCalibrationWorkflowStep::MeasuringHighPh
+                            }
                             "complete" => lib::ui_types::PhCalibrationWorkflowStep::Complete,
                             "cancelled" => lib::ui_types::PhCalibrationWorkflowStep::Cancelled,
                             _ => {
@@ -429,7 +520,10 @@ async fn process_cli_commands(ui: &MainWindow) {
                         println!("Set pH calibration state to {:?}", ph_state);
                     }
                     _ => {
-                        println!("Unknown command: '{}'. Type 'help' for available commands.", command);
+                        println!(
+                            "Unknown command: '{}'. Type 'help' for available commands.",
+                            command
+                        );
                     }
                 }
             }

@@ -33,12 +33,7 @@ mod tests {
     const EPSILON: f32 = 0.001;
 
     fn assert_approx_eq(a: f32, b: f32) {
-        assert!(
-            (a - b).abs() < EPSILON,
-            "Expected {}, got {}",
-            a,
-            b
-        );
+        assert!((a - b).abs() < EPSILON, "Expected {}, got {}", a, b);
     }
 
     #[test]

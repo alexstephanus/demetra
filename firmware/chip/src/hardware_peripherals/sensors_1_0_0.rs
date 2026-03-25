@@ -1,32 +1,26 @@
 use core::{
-    future::Future, iter::Iterator, pin::pin, task::{
-        Context,
-        Poll,
-        Waker,
-    },
+    future::Future,
+    iter::Iterator,
+    pin::pin,
+    task::{Context, Poll, Waker},
 };
 
 use embassy_time::{Duration, Instant, Timer};
 
 use esp_hal::{
-    Async,
-    gpio::{
-        Input,
-        Output,
-    },
+    gpio::{Input, Output},
     ledc::{
         channel::{Channel as LedcChannel, ChannelIFace, Error as LedcChannelError},
         LowSpeed,
     },
-    rmt::{Channel, PulseCode, Error as RmtError, Rx},
+    rmt::{Channel, Error as RmtError, PulseCode, Rx},
+    Async,
 };
 
 use log::debug;
 
 type MuxPinError = port_expander::PinError<
-    embassy_embedded_hal::shared_bus::I2cDeviceError<
-        esp_hal::i2c::master::Error
-    >
+    embassy_embedded_hal::shared_bus::I2cDeviceError<esp_hal::i2c::master::Error>,
 >;
 
 #[derive(Debug)]
@@ -40,17 +34,11 @@ enum SensorReadError {
 }
 
 use lib::{
-    peripherals::{
-        SensorReadRaw,
-        SensorError,
-        cic_filter_order_3,
-        OversampleRatio
-    },
+    peripherals::{cic_filter_order_3, OversampleRatio, SensorError, SensorReadRaw},
     ui_types::SensorType,
 };
 
 use super::type_aliases::McpOutputPin;
-
 
 const OSR: OversampleRatio = OversampleRatio::_1024;
 const OSR_DIVISOR: u32 = OSR.get_cnc_filter_cap();
@@ -64,7 +52,7 @@ pub struct RmtReadings<'a> {
     items: &'a [PulseCode; RMT_BUFFER_LEN],
 }
 
-impl<'a> RmtReadings<'a> { 
+impl<'a> RmtReadings<'a> {
     fn new(items: &'a [PulseCode; RMT_BUFFER_LEN]) -> Self {
         Self { items }
     }
@@ -105,7 +93,10 @@ impl<'a> RmtBitIterator<'a> {
                 self.pulse_code_value = self.items[self.bit_idx].level1().into();
                 self.pulse_code_quantity = self.items[self.bit_idx].length1();
                 if self.pulse_code_quantity % 4 != 0 {
-                    log::warn!("Pulse code quantity is not a multiple of 4: {}", self.pulse_code_quantity);
+                    log::warn!(
+                        "Pulse code quantity is not a multiple of 4: {}",
+                        self.pulse_code_quantity
+                    );
                 }
                 self.pulse_code_quantity /= 4;
                 self.first_pulse_in_code = false;
@@ -115,7 +106,10 @@ impl<'a> RmtBitIterator<'a> {
                 self.pulse_code_quantity = self.items[self.bit_idx].length2();
                 self.first_pulse_in_code = true;
                 if self.pulse_code_quantity % 4 != 0 {
-                    log::warn!("Pulse code quantity is not a multiple of 4: {}", self.pulse_code_quantity);
+                    log::warn!(
+                        "Pulse code quantity is not a multiple of 4: {}",
+                        self.pulse_code_quantity
+                    );
                 }
                 self.pulse_code_quantity /= 4;
                 self.bit_idx += 1;
@@ -176,7 +170,6 @@ impl<'a> Sensors_1_0_0<'a> {
         temp_ec_sqw: Output<'a>,
         diag_pin: Input<'a>,
     ) -> Self {
-
         Self {
             rmt_channel,
             diag_pin,
@@ -194,7 +187,9 @@ impl<'a> Sensors_1_0_0<'a> {
         match self.sensor_status {
             SensorStatus::On => Ok(()),
             SensorStatus::Off => {
-                self.adc_clock.set_duty(50).map_err(SensorReadError::ClockStartFailure)?;
+                self.adc_clock
+                    .set_duty(50)
+                    .map_err(SensorReadError::ClockStartFailure)?;
                 self.sensor_status = SensorStatus::On;
                 Timer::after_millis(250).await;
                 Ok(())
@@ -205,7 +200,9 @@ impl<'a> Sensors_1_0_0<'a> {
     async fn turn_clock_off(&mut self) -> Result<(), SensorReadError> {
         match self.sensor_status {
             SensorStatus::On => {
-                self.adc_clock.set_duty(0).map_err(SensorReadError::ClockStartFailure)?;
+                self.adc_clock
+                    .set_duty(0)
+                    .map_err(SensorReadError::ClockStartFailure)?;
                 self.sensor_status = SensorStatus::Off;
             }
             SensorStatus::Off => (),
@@ -216,20 +213,36 @@ impl<'a> Sensors_1_0_0<'a> {
     async fn select_sensor(&mut self, sensor_type: SensorType) -> Result<(), SensorReadError> {
         match sensor_type {
             SensorType::Ph => {
-                self.adc_mux_sel_a.set_high().map_err(SensorReadError::MuxSelect)?;
-                self.adc_mux_sel_b.set_low().map_err(SensorReadError::MuxSelect)?;
+                self.adc_mux_sel_a
+                    .set_high()
+                    .map_err(SensorReadError::MuxSelect)?;
+                self.adc_mux_sel_b
+                    .set_low()
+                    .map_err(SensorReadError::MuxSelect)?;
             }
             SensorType::Orp => {
-                self.adc_mux_sel_a.set_high().map_err(SensorReadError::MuxSelect)?;
-                self.adc_mux_sel_b.set_high().map_err(SensorReadError::MuxSelect)?;
+                self.adc_mux_sel_a
+                    .set_high()
+                    .map_err(SensorReadError::MuxSelect)?;
+                self.adc_mux_sel_b
+                    .set_high()
+                    .map_err(SensorReadError::MuxSelect)?;
             }
             SensorType::Conductivity => {
-                self.adc_mux_sel_a.set_low().map_err(SensorReadError::MuxSelect)?;
-                self.adc_mux_sel_b.set_high().map_err(SensorReadError::MuxSelect)?;
+                self.adc_mux_sel_a
+                    .set_low()
+                    .map_err(SensorReadError::MuxSelect)?;
+                self.adc_mux_sel_b
+                    .set_high()
+                    .map_err(SensorReadError::MuxSelect)?;
             }
             SensorType::Temperature => {
-                self.adc_mux_sel_a.set_low().map_err(SensorReadError::MuxSelect)?;
-                self.adc_mux_sel_b.set_high().map_err(SensorReadError::MuxSelect)?;
+                self.adc_mux_sel_a
+                    .set_low()
+                    .map_err(SensorReadError::MuxSelect)?;
+                self.adc_mux_sel_b
+                    .set_high()
+                    .map_err(SensorReadError::MuxSelect)?;
                 self.temp_ec_sel.set_low();
                 self.temp_ec_sqw.set_low();
             }
@@ -312,17 +325,21 @@ impl<'a> Sensors_1_0_0<'a> {
         let val = cic_filter_order_3(&RmtReadings::new(&self.readings), OSR)
             .map_err(|_| SensorReadError::InsufficientData)?;
         let ratio = (val as f32) / OSR_DIVISOR as f32;
-        Ok(((ratio * ADC_RANGE) - ADC_RANGE / 2.0) * 1000.0) 
+        Ok(((ratio * ADC_RANGE) - ADC_RANGE / 2.0) * 1000.0)
     }
 }
 
 impl<'a> SensorReadRaw for Sensors_1_0_0<'a> {
     async fn turn_sensors_on(&mut self) -> Result<(), SensorError> {
-        self.turn_clock_on().await.map_err(|_| SensorError::HardwareControlFailure)
+        self.turn_clock_on()
+            .await
+            .map_err(|_| SensorError::HardwareControlFailure)
     }
 
     async fn turn_sensors_off(&mut self) -> Result<(), SensorError> {
-        self.turn_clock_off().await.map_err(|_| SensorError::HardwareControlFailure)
+        self.turn_clock_off()
+            .await
+            .map_err(|_| SensorError::HardwareControlFailure)
     }
 
     async fn read_sensor_raw(&mut self, sensor_type: SensorType) -> Result<f32, SensorError> {
@@ -346,9 +363,7 @@ impl<'a> SensorReadRaw for Sensors_1_0_0<'a> {
 
     fn adc_mv_to_sensor_value(&self, sensor_type: SensorType, raw_adc_mv: f32) -> f32 {
         match sensor_type {
-            SensorType::Ph => {
-                raw_adc_mv
-            },
+            SensorType::Ph => raw_adc_mv,
             SensorType::Orp => {
                 // V_Ref goes through a 100k/100k resistor divider
                 // Then the output also goes through a 100k/50k divider
@@ -357,12 +372,12 @@ impl<'a> SensorReadRaw for Sensors_1_0_0<'a> {
                 let sensor_output_voltage = raw_adc_mv * 3.0;
                 let divided_vref = VOLTAGE_REFERENCE_MV / 2.0;
                 sensor_output_voltage - divided_vref
-            },
+            }
             SensorType::Conductivity => {
                 // V_Ref goes through a 10k precision resistor, then the sensor,
                 // then a 1k precision resistor, then to ground.
                 raw_adc_mv * 11000.0 / (VOLTAGE_REFERENCE_MV - raw_adc_mv)
-            },
+            }
             SensorType::Temperature => {
                 // Same situation as Conductivity
                 raw_adc_mv * 11000.0 / (VOLTAGE_REFERENCE_MV - raw_adc_mv)

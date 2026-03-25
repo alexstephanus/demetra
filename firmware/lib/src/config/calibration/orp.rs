@@ -25,7 +25,11 @@ impl TimestampedValue for OrpCalibration {
 
 impl Default for OrpCalibration {
     fn default() -> Self {
-        Self::new(Voltage::from_mv(0.0), Voltage::from_mv(0.0), DateTime::<Utc>::from_timestamp_millis(0).unwrap())
+        Self::new(
+            Voltage::from_mv(0.0),
+            Voltage::from_mv(0.0),
+            DateTime::<Utc>::from_timestamp_millis(0).unwrap(),
+        )
     }
 }
 
@@ -44,7 +48,8 @@ impl OrpCalibration {
             false => -1.0,
         };
 
-        let calibrated_offset = Voltage::from_mv((measured_voltage.mv() * slope) - solution_voltage.mv());
+        let calibrated_offset =
+            Voltage::from_mv((measured_voltage.mv() * slope) - solution_voltage.mv());
 
         OrpCalibration {
             calibrated_offset,
@@ -53,11 +58,9 @@ impl OrpCalibration {
         }
     }
 
-    pub fn get_calibrated_orp_measurement(
-        &self,
-        measured_voltage: Voltage,
-    ) -> OrpMeasurementPoint {
-        let voltage = Voltage::from_mv(measured_voltage.mv() * self.slope - self.calibrated_offset.mv());
+    pub fn get_calibrated_orp_measurement(&self, measured_voltage: Voltage) -> OrpMeasurementPoint {
+        let voltage =
+            Voltage::from_mv(measured_voltage.mv() * self.slope - self.calibrated_offset.mv());
         OrpMeasurementPoint { voltage }
     }
 }

@@ -1,13 +1,10 @@
+use core::sync::atomic::{AtomicU8, Ordering};
 
-use core::sync::atomic::{ AtomicU8, Ordering };
-
-use embassy_sync::{
-    blocking_mutex::NoopMutex as NoopBlockingMutex,
-};
+use embassy_sync::blocking_mutex::NoopMutex as NoopBlockingMutex;
 use embedded_hal::delay::DelayNs;
+use embedded_storage::{ReadStorage, Storage};
 use esp_hal::system::CpuControl;
-use esp_storage::{ FlashStorage, FlashStorageError };
-use embedded_storage::{ ReadStorage, Storage };
+use esp_storage::{FlashStorage, FlashStorageError};
 
 pub const DMA_FLASH_STATE_IDLE: u8 = 0;
 pub const DMA_FLASH_STATE_DMA_ACTIVE: u8 = 1;
@@ -20,16 +17,13 @@ pub struct EspStorageInternals<'a> {
     pub cpu_control: CpuControl<'a>,
 }
 
-/// This struct exists because we need access to both the FlashStorage and CpuControl 
+/// This struct exists because we need access to both the FlashStorage and CpuControl
 /// in order to write to flash.  Keeping the internals in a mutex allows us to create and
 /// pass around as many EspStorage objects as we want even though their internals are
 /// singletons -- it also avoids any potential deadlocks caused by them being in two
 /// separate mutexes.
 impl<'a> EspStorageInternals<'a> {
-    pub fn new(
-        flash_storage: FlashStorage<'a>,
-        cpu_control: CpuControl<'a>,
-    ) -> Self {
+    pub fn new(flash_storage: FlashStorage<'a>, cpu_control: CpuControl<'a>) -> Self {
         Self {
             flash_storage,
             cpu_control,
@@ -43,9 +37,7 @@ pub struct EspStorage<'a> {
 }
 
 impl<'a> EspStorage<'a> {
-    pub fn new(
-        internals: &'a NoopBlockingMutex<EspStorageInternals<'a>>,
-    ) -> Self {
+    pub fn new(internals: &'a NoopBlockingMutex<EspStorageInternals<'a>>) -> Self {
         Self {
             internals,
             delay: esp_hal::delay::Delay::new(),
@@ -61,21 +53,19 @@ impl ReadStorage for EspStorage<'_> {
     #[allow(unsafe_code)]
     fn read(&mut self, offset: u32, bytes: &mut [u8]) -> Result<(), FlashStorageError> {
         unsafe {
-            self.internals.lock_mut(|guard|
-                guard.flash_storage.read(offset, bytes)
-            )
+            self.internals
+                .lock_mut(|guard| guard.flash_storage.read(offset, bytes))
         }
     }
 
     fn capacity(&self) -> usize {
-        self.internals.lock(|guard| { guard.flash_storage.capacity() })
+        self.internals.lock(|guard| guard.flash_storage.capacity())
     }
 }
 
 impl Storage for EspStorage<'_> {
-    
     // This function is unsafe because parking a core is unsafe
-    // (if you park the core this is running on, it's not good) 
+    // (if you park the core this is running on, it's not good)
     // But, we need to do that to avoid deadlocks when writing to flash.
     // We only write to flash from ProCpu (CPU0), since rendering the UI is
     // the only thing done on AppCpu (CPU1) and that doesn't require flash writes.
@@ -108,7 +98,9 @@ impl Storage for EspStorage<'_> {
                     log::debug!("Parking Core 1");
                     guard.cpu_control.park_core(esp_hal::system::Cpu::AppCpu);
                     loop {
-                        if !(esp_hal::system::is_running(esp_hal::system::Cpu::AppCpu)) { break; }
+                        if !(esp_hal::system::is_running(esp_hal::system::Cpu::AppCpu)) {
+                            break;
+                        }
                     }
                 });
                 let res = guard.flash_storage.write(offset, bytes);

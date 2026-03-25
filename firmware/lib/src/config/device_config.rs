@@ -11,16 +11,15 @@ use chrono_tz::Tz;
 
 use slint::ComponentHandle;
 
-
 use crate::{
     config::calibration::{
-        ConductivityCalibration,
-        OrpCalibration,
-        ThreePointPhCalibration,
-        types::TimestampedValue,
+        types::TimestampedValue, ConductivityCalibration, OrpCalibration, ThreePointPhCalibration,
     },
     peripherals::{DosingPump, DosingPumpStateList, OutletStateList},
-    ui_types::{ConductivityDisplayUnit, Status, TemperatureDisplayUnit, Outlet, OutletUiState, MainWindow, SensorType, SensorUiState, PumpUiState, DosingPumpUiState},
+    ui_types::{
+        ConductivityDisplayUnit, DosingPumpUiState, MainWindow, Outlet, OutletUiState, PumpUiState,
+        SensorType, SensorUiState, Status, TemperatureDisplayUnit,
+    },
     units::Volume,
 };
 
@@ -284,7 +283,12 @@ impl DeviceConfig {
     }
 
     pub fn populate_ui_from_backend(&mut self, ui: &MainWindow) {
-        for sensor_type in [SensorType::Ph, SensorType::Conductivity, SensorType::Orp, SensorType::Temperature] {
+        for sensor_type in [
+            SensorType::Ph,
+            SensorType::Conductivity,
+            SensorType::Orp,
+            SensorType::Temperature,
+        ] {
             self.update_ui_sensor_state(ui, sensor_type);
         }
 

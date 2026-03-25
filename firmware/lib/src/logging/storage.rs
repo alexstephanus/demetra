@@ -133,11 +133,8 @@ pub type LogRingBuffer<S, E> = RingBuffer<super::LogEntry, LogMetadata, S, E>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::ring_buffer::{
-        MockFlashStorage,
-        MockFlashStorageError,
-    };
     use crate::logging::LogEntry;
+    use crate::storage::ring_buffer::{MockFlashStorage, MockFlashStorageError};
     use chrono::{DateTime, Utc};
     use proptest::prelude::*;
     use std::vec;
@@ -169,7 +166,8 @@ mod tests {
             None => MockFlashStorage::new(start_address, end_address, None),
             Some(existing) => existing,
         };
-        LogRingBuffer::new(start_address, end_address, flash).expect("test log addresses must be page-aligned")
+        LogRingBuffer::new(start_address, end_address, flash)
+            .expect("test log addresses must be page-aligned")
     }
 
     #[test]
@@ -304,11 +302,26 @@ mod tests {
         let mut buffer = get_log_ring_buffer(None);
 
         let entries = vec![
-            (create_log_entry("info1", 1722581155825), create_metadata(LogLevel::Info, LogCategory::System, false)),
-            (create_log_entry("error1", 1722581155826), create_metadata(LogLevel::Error, LogCategory::Sensor, false)),
-            (create_log_entry("info2", 1722581155827), create_metadata(LogLevel::Info, LogCategory::Network, false)),
-            (create_log_entry("error2", 1722581155828), create_metadata(LogLevel::Error, LogCategory::Pump, false)),
-            (create_log_entry("warn1", 1722581155829), create_metadata(LogLevel::Warn, LogCategory::Dosing, false)),
+            (
+                create_log_entry("info1", 1722581155825),
+                create_metadata(LogLevel::Info, LogCategory::System, false),
+            ),
+            (
+                create_log_entry("error1", 1722581155826),
+                create_metadata(LogLevel::Error, LogCategory::Sensor, false),
+            ),
+            (
+                create_log_entry("info2", 1722581155827),
+                create_metadata(LogLevel::Info, LogCategory::Network, false),
+            ),
+            (
+                create_log_entry("error2", 1722581155828),
+                create_metadata(LogLevel::Error, LogCategory::Pump, false),
+            ),
+            (
+                create_log_entry("warn1", 1722581155829),
+                create_metadata(LogLevel::Warn, LogCategory::Dosing, false),
+            ),
         ];
 
         for (entry, metadata) in &entries {
@@ -329,11 +342,26 @@ mod tests {
         let mut buffer = get_log_ring_buffer(None);
 
         let entries = vec![
-            (create_log_entry("sys1", 1722581155825), create_metadata(LogLevel::Info, LogCategory::System, false)),
-            (create_log_entry("sensor1", 1722581155826), create_metadata(LogLevel::Error, LogCategory::Sensor, false)),
-            (create_log_entry("sys2", 1722581155827), create_metadata(LogLevel::Warn, LogCategory::System, false)),
-            (create_log_entry("pump1", 1722581155828), create_metadata(LogLevel::Error, LogCategory::Pump, false)),
-            (create_log_entry("sensor2", 1722581155829), create_metadata(LogLevel::Info, LogCategory::Sensor, false)),
+            (
+                create_log_entry("sys1", 1722581155825),
+                create_metadata(LogLevel::Info, LogCategory::System, false),
+            ),
+            (
+                create_log_entry("sensor1", 1722581155826),
+                create_metadata(LogLevel::Error, LogCategory::Sensor, false),
+            ),
+            (
+                create_log_entry("sys2", 1722581155827),
+                create_metadata(LogLevel::Warn, LogCategory::System, false),
+            ),
+            (
+                create_log_entry("pump1", 1722581155828),
+                create_metadata(LogLevel::Error, LogCategory::Pump, false),
+            ),
+            (
+                create_log_entry("sensor2", 1722581155829),
+                create_metadata(LogLevel::Info, LogCategory::Sensor, false),
+            ),
         ];
 
         for (entry, metadata) in &entries {
@@ -354,10 +382,22 @@ mod tests {
         let mut buffer = get_log_ring_buffer(None);
 
         let entries = vec![
-            (create_log_entry("unpub1", 1722581155825), create_metadata(LogLevel::Info, LogCategory::System, false)),
-            (create_log_entry("pub1", 1722581155826), create_metadata(LogLevel::Error, LogCategory::Sensor, true)),
-            (create_log_entry("unpub2", 1722581155827), create_metadata(LogLevel::Warn, LogCategory::System, false)),
-            (create_log_entry("pub2", 1722581155828), create_metadata(LogLevel::Error, LogCategory::Pump, true)),
+            (
+                create_log_entry("unpub1", 1722581155825),
+                create_metadata(LogLevel::Info, LogCategory::System, false),
+            ),
+            (
+                create_log_entry("pub1", 1722581155826),
+                create_metadata(LogLevel::Error, LogCategory::Sensor, true),
+            ),
+            (
+                create_log_entry("unpub2", 1722581155827),
+                create_metadata(LogLevel::Warn, LogCategory::System, false),
+            ),
+            (
+                create_log_entry("pub2", 1722581155828),
+                create_metadata(LogLevel::Error, LogCategory::Pump, true),
+            ),
         ];
 
         for (entry, metadata) in &entries {
@@ -380,11 +420,26 @@ mod tests {
         let mut buffer = get_log_ring_buffer(None);
 
         let entries = vec![
-            (create_log_entry("match1", 1722581155825), create_metadata(LogLevel::Error, LogCategory::Sensor, false)),
-            (create_log_entry("no_match1", 1722581155826), create_metadata(LogLevel::Error, LogCategory::System, false)),
-            (create_log_entry("no_match2", 1722581155827), create_metadata(LogLevel::Info, LogCategory::Sensor, false)),
-            (create_log_entry("match2", 1722581155828), create_metadata(LogLevel::Error, LogCategory::Sensor, true)),
-            (create_log_entry("no_match3", 1722581155829), create_metadata(LogLevel::Warn, LogCategory::Pump, false)),
+            (
+                create_log_entry("match1", 1722581155825),
+                create_metadata(LogLevel::Error, LogCategory::Sensor, false),
+            ),
+            (
+                create_log_entry("no_match1", 1722581155826),
+                create_metadata(LogLevel::Error, LogCategory::System, false),
+            ),
+            (
+                create_log_entry("no_match2", 1722581155827),
+                create_metadata(LogLevel::Info, LogCategory::Sensor, false),
+            ),
+            (
+                create_log_entry("match2", 1722581155828),
+                create_metadata(LogLevel::Error, LogCategory::Sensor, true),
+            ),
+            (
+                create_log_entry("no_match3", 1722581155829),
+                create_metadata(LogLevel::Warn, LogCategory::Pump, false),
+            ),
         ];
 
         for (entry, metadata) in &entries {

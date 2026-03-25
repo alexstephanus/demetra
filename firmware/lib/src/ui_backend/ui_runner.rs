@@ -1,4 +1,3 @@
-
 cfg_if::cfg_if! {
     if #[cfg(any(test, feature = "simulation"))] {
         use std::rc::Rc;
@@ -12,19 +11,17 @@ use embassy_sync::{
 };
 use embassy_time::{Duration, Ticker};
 
-use slint::{
-    platform::{
-        software_renderer::{
-            MinimalSoftwareWindow,
-            PhysicalRegion,
-            Rgb565Pixel
-        },
-        WindowEvent,
-    },
+use slint::platform::{
+    software_renderer::{MinimalSoftwareWindow, PhysicalRegion, Rgb565Pixel},
+    WindowEvent,
 };
 
 pub const WINDOW_EVENT_CHANNEL_SIZE: usize = 75;
-pub static WINDOW_EVENT_CHANNEL: Channel<CriticalSectionRawMutex, WindowEvent, WINDOW_EVENT_CHANNEL_SIZE> = Channel::new();
+pub static WINDOW_EVENT_CHANNEL: Channel<
+    CriticalSectionRawMutex,
+    WindowEvent,
+    WINDOW_EVENT_CHANNEL_SIZE,
+> = Channel::new();
 
 pub const DISPLAY_WIDTH: u16 = 320;
 pub const DISPLAY_HEIGHT: u16 = 480;
@@ -48,7 +45,6 @@ pub async fn render_loop<S: DisplayPixels>(
     ui: &crate::ui_types::MainWindow,
     pixel_buf: &mut [Rgb565Pixel],
 ) {
-
     let mut last_pumps = crate::peripherals::DosingPumpStateList::default();
     let mut last_outlets = crate::peripherals::OutletStateList::default();
 
@@ -68,24 +64,30 @@ pub async fn render_loop<S: DisplayPixels>(
                 Ok(e) => {
                     log::debug!("Window event received: {:?}", e);
                     window.dispatch_event(e);
-                },
+                }
                 Err(_) => break 'event,
             }
         }
 
-        let redraw_start = embassy_time::Instant::now(); 
+        let redraw_start = embassy_time::Instant::now();
         let mut redraw_region: PhysicalRegion = PhysicalRegion::default();
         let display_needs_flush = window.draw_if_needed(|renderer| {
             redraw_region = renderer.render(pixel_buf, DISPLAY_WIDTH.into());
         });
         if display_needs_flush {
-            log::info!("draw_if_needed took {:?} micros", redraw_start.elapsed().as_micros());
+            log::info!(
+                "draw_if_needed took {:?} micros",
+                redraw_start.elapsed().as_micros()
+            );
         }
 
-        let flush_start = embassy_time::Instant::now(); 
+        let flush_start = embassy_time::Instant::now();
         if display_needs_flush {
             screen.draw_pixels(pixel_buf, redraw_region).await;
-            log::info!("draw_pixels took {:?} micros", flush_start.elapsed().as_micros());
+            log::info!(
+                "draw_pixels took {:?} micros",
+                flush_start.elapsed().as_micros()
+            );
         }
         if flush_start.elapsed() < Duration::from_micros(fps_micros) {
             fps_limit_ticker.next().await;

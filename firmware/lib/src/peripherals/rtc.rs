@@ -61,14 +61,10 @@ impl SystemTimeInfo {
         let month_u32 = month.try_into().map_err(|_| RtcError::InvalidDateTime)?;
         let day_u32 = day.try_into().map_err(|_| RtcError::InvalidDateTime)?;
 
-        let new_date = NaiveDate::from_ymd_opt(year, month_u32, day_u32)
-            .ok_or(RtcError::InvalidDateTime)?;
+        let new_date =
+            NaiveDate::from_ymd_opt(year, month_u32, day_u32).ok_or(RtcError::InvalidDateTime)?;
         let new_datetime = new_date
-            .and_hms_opt(
-                current.hour(),
-                current.minute(),
-                current.second(),
-            )
+            .and_hms_opt(current.hour(), current.minute(), current.second())
             .ok_or(RtcError::InvalidDateTime)?;
 
         log::info!("New system date: {:?}", new_datetime);
@@ -91,7 +87,8 @@ impl SystemTimeInfo {
         let minute_u32 = minute.try_into().map_err(|_| RtcError::InvalidDateTime)?;
         let second_u32 = second.try_into().map_err(|_| RtcError::InvalidDateTime)?;
 
-        let new_datetime = current.date_naive()
+        let new_datetime = current
+            .date_naive()
             .and_hms_opt(hour_u32, minute_u32, second_u32)
             .ok_or(RtcError::InvalidDateTime)?;
 
@@ -112,13 +109,17 @@ impl<I2C: I2c> Mcp7940<I2C> {
     pub fn new(i2c_device: I2C) -> Result<Self, RtcError> {
         let mut rtc = Mcp794xx::new_mcp7940n(i2c_device);
 
-        let power_failed = rtc.has_power_failed().map_err(|_| RtcError::HardwareCommunication)?;
+        let power_failed = rtc
+            .has_power_failed()
+            .map_err(|_| RtcError::HardwareCommunication)?;
         if power_failed {
             log::error!("RTC power failed.  Starting from default date/time");
-            rtc.clear_power_failed().map_err(|_| RtcError::HardwareCommunication)?;
+            rtc.clear_power_failed()
+                .map_err(|_| RtcError::HardwareCommunication)?;
         }
 
-        rtc.disable_external_oscillator().map_err(|_| RtcError::HardwareCommunication)?;
+        rtc.disable_external_oscillator()
+            .map_err(|_| RtcError::HardwareCommunication)?;
 
         rtc.enable_backup_battery_power()
             .map_err(|_| RtcError::HardwareCommunication)?;
@@ -147,7 +148,15 @@ impl<I2C: I2c> Mcp7940<I2C> {
         Err(RtcError::InitializationFailure)
     }
 
-    pub fn set_datetime(&mut self, year: i32, month: i32, day: i32, hour: i32, minute: i32, second: i32) -> Result<(), RtcError> {
+    pub fn set_datetime(
+        &mut self,
+        year: i32,
+        month: i32,
+        day: i32,
+        hour: i32,
+        minute: i32,
+        second: i32,
+    ) -> Result<(), RtcError> {
         self.disable()?;
 
         let month_u32 = month.try_into().map_err(|_| RtcError::InvalidDateTime)?;
@@ -179,7 +188,9 @@ impl<I2C: I2c> Mcp7940<I2C> {
     }
 
     pub fn get_datetime(&mut self) -> Result<DateTime<Utc>, RtcError> {
-        let datetime = self.rtc.datetime()
+        let datetime = self
+            .rtc
+            .datetime()
             .map_err(|_| RtcError::HardwareCommunication)?;
         Ok(datetime.and_utc())
     }

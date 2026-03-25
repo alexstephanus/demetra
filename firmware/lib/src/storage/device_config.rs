@@ -1,10 +1,6 @@
 use chrono::{DateTime, Utc};
 use core::fmt::Debug;
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
-    mutex::Mutex,
-    rwlock::RwLock,
-};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex, rwlock::RwLock};
 use embedded_storage::Storage;
 
 use crate::{
