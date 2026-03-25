@@ -218,6 +218,8 @@ pub(crate) mod test_helpers {
     pub struct TestHarness {
         pub ui: MainWindow,
         pub messages: Arc<StdMutex<Vec<UiMessage>>>,
+        last_pumps: crate::peripherals::DosingPumpStateList,
+        last_outlets: crate::peripherals::OutletStateList,
     }
 
     impl TestHarness {
@@ -229,7 +231,12 @@ pub(crate) mod test_helpers {
             super::register_all_callbacks_with_sender(&ui, move |msg| {
                 captured.lock().unwrap().push(msg);
             });
-            Self { ui, messages }
+            Self {
+                ui,
+                messages,
+                last_pumps: crate::peripherals::DosingPumpStateList::default(),
+                last_outlets: crate::peripherals::OutletStateList::default(),
+            }
         }
 
         pub fn take_messages(&self) -> Vec<UiMessage> {
@@ -240,6 +247,16 @@ pub(crate) mod test_helpers {
             for msg in self.take_messages() {
                 super::dispatch(msg, ctx).await;
             }
+        }
+
+        pub async fn sync_to_ui(&mut self) {
+            crate::ui_backend::sync_runtime_state_to_ui(&self.ui).await;
+            crate::ui_backend::sync_device_config_to_ui(
+                &self.ui,
+                &mut self.last_pumps,
+                &mut self.last_outlets,
+            )
+            .await;
         }
     }
 }
@@ -259,7 +276,7 @@ mod tests {
         units::Volume,
     };
     use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
-    use slint::ComponentHandle;
+    use slint::{ComponentHandle, Model};
 
     #[tokio::test]
     #[rstest::rstest]
@@ -644,5 +661,117 @@ mod tests {
         let config = get_device_config().await;
         assert_eq!(config.ph.min_acceptable, 5.5);
         assert_eq!(config.ph.max_acceptable, 7.5);
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_tank_size() {
+        let mut harness = TestHarness::new();
+        let mut buffer = mock_ring_buffer();
+        let mut rtc = StubRtc;
+        let tc = mock_treatment_controller();
+        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
+        let mut ctx = super::MessageContext {
+            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
+            current_ticks: 0,
+            rtc: &mut rtc,
+            treatment_controller: &tc_mutex,
+            config_buffer: &mut buffer,
+        };
+
+        harness.ui.global::<AppUiState>().invoke_set_tank_size(42.0);
+        harness.dispatch_all(&mut ctx).await;
+        harness.sync_to_ui().await;
+
+        assert_eq!(harness.ui.global::<AppUiState>().get_tank_size(), 42.0);
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_temperature_display_unit() {
+        let mut harness = TestHarness::new();
+        let mut buffer = mock_ring_buffer();
+        let mut rtc = StubRtc;
+        let tc = mock_treatment_controller();
+        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
+        let mut ctx = super::MessageContext {
+            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
+            current_ticks: 0,
+            rtc: &mut rtc,
+            treatment_controller: &tc_mutex,
+            config_buffer: &mut buffer,
+        };
+
+        harness
+            .ui
+            .global::<AppUiState>()
+            .invoke_set_temperature_display_unit(TemperatureDisplayUnit::Fahrenheit);
+        harness.dispatch_all(&mut ctx).await;
+        harness.sync_to_ui().await;
+
+        assert_eq!(
+            harness
+                .ui
+                .global::<AppUiState>()
+                .get_temperature_display_unit(),
+            TemperatureDisplayUnit::Fahrenheit
+        );
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_enable_pump() {
+        let mut harness = TestHarness::new();
+        let mut buffer = mock_ring_buffer();
+        let mut rtc = StubRtc;
+        let tc = mock_treatment_controller();
+        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
+        let mut ctx = super::MessageContext {
+            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
+            current_ticks: 0,
+            rtc: &mut rtc,
+            treatment_controller: &tc_mutex,
+            config_buffer: &mut buffer,
+        };
+
+        harness.ui.global::<PumpUiState>().invoke_enable_pump(0);
+        harness.dispatch_all(&mut ctx).await;
+        harness.sync_to_ui().await;
+
+        let pump_states = harness.ui.global::<PumpUiState>().get_dosing_pump_states();
+        assert!(pump_states.row_data(0).unwrap().enabled);
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_sensor_config() {
+        let mut harness = TestHarness::new();
+        let mut buffer = mock_ring_buffer();
+        let mut rtc = StubRtc;
+        let tc = mock_treatment_controller();
+        let tc_mutex: Mutex<NoopRawMutex, _> = Mutex::new(tc);
+        let mut ctx = super::MessageContext {
+            current_timestamp: chrono::DateTime::<chrono::Utc>::from_timestamp_millis(0).unwrap(),
+            current_ticks: 0,
+            rtc: &mut rtc,
+            treatment_controller: &tc_mutex,
+            config_buffer: &mut buffer,
+        };
+
+        harness
+            .ui
+            .global::<SensorUiState>()
+            .invoke_enable_sensor(SensorType::Ph);
+        harness
+            .ui
+            .global::<SensorUiState>()
+            .invoke_set_sensor_min_value(SensorType::Ph, 5.5);
+        harness
+            .ui
+            .global::<SensorUiState>()
+            .invoke_set_sensor_max_value(SensorType::Ph, 7.5);
+        harness.dispatch_all(&mut ctx).await;
+        harness.sync_to_ui().await;
+
+        let sensors = harness.ui.global::<SensorUiState>();
+        assert!(sensors.get_ph_enabled());
+        assert_eq!(sensors.get_ph_min_acceptable(), 5.5);
+        assert_eq!(sensors.get_ph_max_acceptable(), 7.5);
     }
 }
