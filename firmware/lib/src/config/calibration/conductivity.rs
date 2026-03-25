@@ -25,8 +25,8 @@ impl TimestampedValue for ConductivityCalibration {
     }
 }
 
-impl ConductivityCalibration {
-    pub fn default() -> Self {
+impl Default for ConductivityCalibration {
+    fn default() -> Self {
         Self::new(
             Resistance::from_ohms(1000.0),
             1000.0,
@@ -34,7 +34,9 @@ impl ConductivityCalibration {
             DateTime::<Utc>::from_timestamp_millis(0).unwrap(),
         )
     }
+}
 
+impl ConductivityCalibration {
     pub fn new(
         measured_resistance: Resistance,
         solution_us_per_cm: f32,

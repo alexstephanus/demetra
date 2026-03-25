@@ -65,7 +65,7 @@ where
 
     pub fn calculate_mean_and_variance(values: &[f32]) -> (f32, f32) {
         let array_len = values.len() as f32;
-        let mean = values.into_iter().sum::<f32>() / array_len;
+        let mean = values.iter().sum::<f32>() / array_len;
         let mut running_std_dev = 0.0;
         for val in values.iter() {
             running_std_dev += (val - mean) * (val - mean);

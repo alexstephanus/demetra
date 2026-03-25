@@ -1,5 +1,8 @@
 use core::iter::IntoIterator;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InsufficientSamples;
+
 #[derive(Clone, Copy)]
 pub enum OversampleRatio {
     _4 = 4,
@@ -35,11 +38,11 @@ impl OversampleRatio {
 
 /// Third-order sinc filter, with user-specifiable decimation factor
 /// The output takes three cycles to settle, so if the iterator
-/// doesn't have enough elements to settle, it returns Err(())
+/// doesn't have enough elements to settle, it returns an error.
 pub fn cic_filter_order_3(
     bits: impl IntoIterator<Item = bool>,
     osr: OversampleRatio,
-) -> Result<u32, ()> {
+) -> Result<u32, InsufficientSamples> {
     let mod_base = 2 * osr.get_cnc_filter_cap();
 
     let mut delta_1: u32 = 0;
@@ -60,7 +63,7 @@ pub fn cic_filter_order_3(
     for _decimation_step in 0..3 {
         for _sample_number in 0..samples {
             let current_bit = match bit_iterator.next() {
-                None => return Err(()),
+                None => return Err(InsufficientSamples),
                 Some(bit) => bit,
             };
             cn_2 = cn_2.wrapping_add(cn_1) % mod_base;

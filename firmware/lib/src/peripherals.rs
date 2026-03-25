@@ -7,6 +7,7 @@ use core::marker::PhantomData;
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 
 pub use cic_filter::{
+    InsufficientSamples,
     OversampleRatio,
     cic_filter_order_3
 };

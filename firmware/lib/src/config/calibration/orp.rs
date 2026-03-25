@@ -23,11 +23,13 @@ impl TimestampedValue for OrpCalibration {
     }
 }
 
-impl OrpCalibration {
-    pub fn default() -> Self {
+impl Default for OrpCalibration {
+    fn default() -> Self {
         Self::new(Voltage::from_mv(0.0), Voltage::from_mv(0.0), DateTime::<Utc>::from_timestamp_millis(0).unwrap())
     }
+}
 
+impl OrpCalibration {
     pub fn new(
         measured_voltage: Voltage,
         solution_voltage: Voltage,

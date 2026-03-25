@@ -107,12 +107,12 @@ pub(crate) fn calculate_ph_down_dose(
     tank_size: Volume,
     ph_down_ph: PhValue,
 ) -> Volume {
-    let h_plus_concentration: f32 = powf(10.0, -1.0 * measured_ph);
+    let h_plus_concentration: f32 = powf(10.0, -measured_ph);
     let current_h_plus: f32 = h_plus_concentration * tank_size.to_liters();
-    let desired_h_plus = powf(10.0, -1.0 * target_ph) * tank_size.to_liters();
+    let desired_h_plus = powf(10.0, -target_ph) * tank_size.to_liters();
     let needed_h_plus = desired_h_plus - current_h_plus;
 
-    let solution_h_plus_concentration = powf(10.0, -1.0 * ph_down_ph);
+    let solution_h_plus_concentration = powf(10.0, -ph_down_ph);
     Volume::from_liters(needed_h_plus / solution_h_plus_concentration)
 }
 

@@ -145,10 +145,10 @@ where
     /// Generic ring buffer that stores records of type T with metadata of type M
     /// Record format: [Record Length: 4][Previous Record Length: 4][Payload CRC-32: 4][Metadata: M][JSON Data: T]
     pub fn new(start_address: u32, end_address: u32, flash: S) -> Result<Self, MisalignedAddress> {
-        if start_address % PARTITION_SIZE != 0 {
+        if !start_address.is_multiple_of(PARTITION_SIZE) {
             return Err(MisalignedAddress { address: start_address });
         }
-        if end_address % PARTITION_SIZE != 0 {
+        if !end_address.is_multiple_of(PARTITION_SIZE) {
             return Err(MisalignedAddress { address: end_address });
         }
 
@@ -325,10 +325,7 @@ where
         let metadata_size = M::serialized_size() as u32;
         let total_read_size = RECORD_HEADER_SIZE + metadata_size + json_data_length;
 
-        let mut record_bytes = Vec::<u8>::with_capacity(total_read_size as usize);
-        for _ in 0..total_read_size {
-            record_bytes.push(0xff);
-        }
+        let mut record_bytes = vec![0xff; total_read_size as usize];
 
         let mut address_to_read = address.0;
         debug!(
@@ -481,14 +478,12 @@ where
                 debug!("Page full of a record chunk, going to previous page");
                 let previous_page_address = self.get_previous_page_address(page.address.0);
                 match self.get_page_metadata(previous_page_address.0)? {
-                    None => return Ok(None),
-                    Some(previous_page) => {
-                        return self.find_latest_record_in_page(
-                            previous_page,
-                            base_id,
-                            records_counted,
-                        )
-                    }
+                    None => Ok(None),
+                    Some(previous_page) => self.find_latest_record_in_page(
+                        previous_page,
+                        base_id,
+                        records_counted,
+                    ),
                 }
             }
             false => {

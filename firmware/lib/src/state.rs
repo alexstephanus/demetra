@@ -23,12 +23,12 @@ pub(crate) fn current_micros() -> u64 {
 static SYSTEM_TIME_INFO: LockedState<SystemTimeInfo> = RwLock::new(SystemTimeInfo::default());
 
 pub async fn get_system_time(micros: u64) -> DateTime<Utc> {
-    let system_time_info = (*SYSTEM_TIME_INFO.read().await).clone();
+    let system_time_info = *SYSTEM_TIME_INFO.read().await;
     system_time_info.get_current_time(micros)
 }
 
 pub async fn read_system_time_info() -> SystemTimeInfo {
-    (*SYSTEM_TIME_INFO.read().await).clone()
+    *SYSTEM_TIME_INFO.read().await
 }
 
 pub async fn set_system_time_info(info: SystemTimeInfo) {

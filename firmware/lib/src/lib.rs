@@ -4,7 +4,6 @@
 extern crate alloc;
 
 #[deny(unsafe_code)]
-
 pub mod config;
 pub mod logging;
 pub mod peripherals;
