@@ -24,6 +24,7 @@ alloc = []
 nightly = []
 experimental = []
 embassy = []
+comms-test = []
 
 [build-dependencies]
 

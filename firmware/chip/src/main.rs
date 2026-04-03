@@ -23,6 +23,9 @@ use hardware_peripherals::{
 
 mod tasks;
 
+#[cfg(feature = "comms-test")]
+mod comms_test;
+
 mod esp_ui_backend;
 
 use embassy_executor::Spawner;
@@ -152,14 +155,15 @@ async fn main(spawner: Spawner) {
     let adc_data_pin = peripherals.GPIO13;
     let adc_diag_pin = peripherals.GPIO12;
 
-    // Currently no software support for these interfaces, but it's nice
-    // to have the pin definitions already built in for future reference.
-    let _rs435_d_data_pin = peripherals.GPIO16;
-    let _rs435_r_data_pin = peripherals.GPIO17;
-    let _rs435_drive_pin = peripherals.GPIO10;
-    let _can_rx_pin = peripherals.GPIO18;
-    let _can_tx_pin = peripherals.GPIO8;
-    let _can_stb_pin = peripherals.GPIO45;
+    #[cfg(feature = "comms-test")]
+    let (rs485_tx_pin, rs485_rx_pin, rs485_de_pin, can_rx_pin, can_tx_pin, can_stb_pin) = (
+        peripherals.GPIO16,
+        peripherals.GPIO17,
+        peripherals.GPIO10,
+        peripherals.GPIO18,
+        peripherals.GPIO8,
+        peripherals.GPIO45,
+    );
     let _external_i2c_sda_pin = peripherals.GPIO38;
     let _external_i2c_scl_pin = peripherals.GPIO39;
     let _free_pin = peripherals.GPIO40;
@@ -445,6 +449,43 @@ async fn main(spawner: Spawner) {
             esp_peripherals_mutex,
         ))
         .unwrap();
+
+    #[cfg(feature = "comms-test")]
+    {
+        use esp_hal::twai::{BaudRate, TwaiConfiguration, TwaiMode};
+        use esp_hal::uart::{Config as UartConfig, Uart};
+
+        let twai = TwaiConfiguration::new(
+            peripherals.TWAI0,
+            can_rx_pin,
+            can_tx_pin,
+            BaudRate::B250K,
+            TwaiMode::Normal,
+        )
+        .into_async()
+        .start();
+
+        let rs485_uart = Uart::new(peripherals.UART1, UartConfig::default().with_baudrate(9600))
+            .unwrap()
+            .with_tx(rs485_tx_pin)
+            .with_rx(rs485_rx_pin)
+            .into_async();
+        let (_, rs485_tx) = rs485_uart.split();
+
+        spawner
+            .spawn(comms_test::can_test(
+                twai,
+                Output::new(can_stb_pin, Level::High, OutputConfig::default()),
+            ))
+            .unwrap();
+        spawner
+            .spawn(comms_test::rs485_test(
+                rs485_tx,
+                Output::new(rs485_de_pin, Level::Low, OutputConfig::default()),
+            ))
+            .unwrap();
+        log::info!("Comms test tasks spawned");
+    }
 
     loop {
         let _stats: esp_alloc::HeapStats = esp_alloc::HEAP.stats();

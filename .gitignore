@@ -22,3 +22,4 @@ rustc-ice-*
 
 # Claude Code
 CLAUDE.md
+.claude/
